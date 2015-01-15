@@ -5,10 +5,16 @@ import getpass
 import datetime
 import calendar
 import glob
-from os.path import expanduser
+import math, decimal
 import tarfile
+import urllib
+from os.path import expanduser
+from subprocess import Popen, PIPE
 from shutil import copy
 from Tiff import Tiff
+
+DAYMET_URL="http://thredds.daac.ornl.gov/thredds/fileServer/ornldaac/1219/tiles/"
+DAYMET_PARAMS=["tmin","tmax","prcp"]
 
 def main():
     os.chdir("/home/posideon/professional/CZO/data/south_southern_sierra_snow_off/pitRemove")
@@ -57,7 +63,8 @@ def main():
     proj_dir=create_temp_directory()
     extract_files(args.input, proj_dir, files)
     get_na_dem(args.input, proj_dir)
-    twi,pit = load_tiffs(proj_dir, tiffs)
+    twi,pit,na_dem = load_tiffs(proj_dir, tiffs)
+    get_dayment_files(DAYMET_PARAMS, twi.tiles, args.start_year, args.end_year, proj_dir)
     return
 def extract_files(input_dir, project_dir, files):
     print "Extracting OpenTopo DEMS"
@@ -99,8 +106,6 @@ def get_na_dem(input_dir,project_dir):
         print "Done."
     return  
 def load_tiffs(proj_dir, tiffs):
-##--Load the na_dem
-    #na_dem=Tiff(proj_dir,"na_dem.tif")
 ##--Get all the files in the project directory needed - grouped into like files
 ##--felps==pitRemove
 ##--twis==TWI DEMS
@@ -120,10 +125,35 @@ def load_tiffs(proj_dir, tiffs):
     felp_1=felps.pop(0)
     pit=felp_1.mergeTiff(felps,proj_dir,"pit.tif")
     twi=twi_1.mergeTiff(twis,proj_dir,"twi.tif")
-
-    return twi, pit
-def get_dayment_files(params,start,end):
-    
+##--Warp files
+    pit.warp("DAYMET")
+    pit_c=Tiff(proj_dir,pit.filename[:-4]+"_converted.tif")
+    twi.warp("DAYMET")
+    twi_c=Tiff(proj_dir,twi.filename[:-4]+"_converted.tif")
+##--Load the na_dem
+    coords=pit_c.getProjCoords()
+    ul = [str(math.floor(decimal.Decimal(coords[1][0]) / 1000) * 1000), str(math.ceil(decimal.Decimal(coords[1][1]) / 1000) * 1000)]
+    lr = [str(math.ceil(decimal.Decimal(coords[0][0]) / 1000) * 1000), str(math.floor(decimal.Decimal(coords[0][1]) / 1000) * 1000)]
+    command = ['gdal_translate', '-projwin', ul[0], ul[1], lr[0], lr[1], os.path.join(proj_dir, 'na_dem.tif'), os.path.join(proj_dir, 'na_dem.part.tif')]
+    print "Partitioning na_dem"
+    process=Popen(command,stdout=PIPE,shell=False)
+    process.communicate()
+    if process.returncode != 0:
+        sys.exit("Failed to partition na_dem\n")
+    print "na_dem successfully partitioned"
+    na_dem =Tiff(proj_dir,"na_dem.part.tif")
+    return twi_c, pit_c, na_dem
+def get_dayment_files(params,tiles,start,end,proj_dir):
+    for tile in tiles:         
+        for i in range(0,end-start+1):            
+            year = start+i
+            print "Downloading DAYMET information for tile " + `tile` + " for the year " + `year`
+            for param in params:
+                print "     Downloading " + param + " data from DAYMET"
+                param_url=DAYMET_URL+`year`+"/"+`tile`+"_"+`year`+"/"+param+".nc"
+                out = urllib.urlretrieve(param_url)
+                print out
+    print "All DAYMET data downloaded"
     return
 if __name__ == '__main__':
     main()
