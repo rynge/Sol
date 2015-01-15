@@ -2,28 +2,27 @@ import sys
 import os
 import argparse
 import getpass
-from datetime import date
 import datetime
 import calendar
+import glob
 from os.path import expanduser
 import tarfile
 from shutil import copy
 from Tiff import Tiff
 
 def main():
-    test=Tiff("/home/posideon/professional/CZO/data/south_southern_sierra_snow_off/pitRemove","felp0r0c0.tif")
-    print test.filename
-    print test.location
-    test.loadTiff()
-    quit()
+    os.chdir("/home/posideon/professional/CZO/data/south_southern_sierra_snow_off/pitRemove")
+    test=Tiff("","pit.tif")
+
 ##--Default Values 
     base_year=1980
-    final_year=date.today().year - 2
+    final_year=datetime.date.today().year - 2
     input_dir="./"
     output_dir="./"
     proj_name=getpass.getuser()
     run_dir=os.getcwd();
     files=['pitRemove.tar.gz','TWI.tar.gz']
+    tiffs=list()
 ##--Set up command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", "--start_year", type=int, default=1980, help="The year in which you would like to start calculating EEMT for. Must be greater than 1980. Defaults to 1980")
@@ -55,9 +54,10 @@ def main():
     conf=raw_input("Press [n\N] to cancel or any key to begin")
     if conf=="n" or conf=="N":
         sys.exit("User quit")        
-    project_dir = create_temp_directory()
-    extract_files(args.input, project_dir, files)
-    get_na_dem(args.input, project_dir)
+    proj_dir=create_temp_directory()
+    extract_files(args.input, proj_dir, files)
+    get_na_dem(args.input, proj_dir)
+    twi,pit = load_tiffs(proj_dir, tiffs)
     return
 def extract_files(input_dir, project_dir, files):
     print "Extracting OpenTopo DEMS"
@@ -72,10 +72,16 @@ def extract_files(input_dir, project_dir, files):
 def create_temp_directory():
     print "Creating Project Directory"
     home=expanduser("~")
-    temp_dir=home+"/sol_data/"+`datetime.datetime.now().day`+calendar.month_abbr[datetime.datetime.now().month]+`datetime.datetime.now().year`+":"+`datetime.datetime.now().hour`+`datetime.datetime.now().minute`
+    minute=datetime.datetime.now().minute
+    if datetime.datetime.now().minute < 10:
+        minute="0" + `datetime.datetime.now().minute`
+    minute=str(minute)
+    temp_dir=home+"/sol_data/"+`datetime.datetime.now().day`+calendar.month_abbr[datetime.datetime.now().month]+`datetime.datetime.now().year`+":"+`datetime.datetime.now().hour`+minute
     if not os.path.isdir(temp_dir):
         os.makedirs(temp_dir)
-    print "Project Working Directory is " +temp_dir
+    else:
+        print "Directory already exists"
+    print "Project Working Directory is " + temp_dir
     return temp_dir
 def get_na_dem(input_dir,project_dir):
     na_dem_path=os.path.join(input_dir,"na_dem.tif")
@@ -86,8 +92,38 @@ def get_na_dem(input_dir,project_dir):
         #TODO
         #DOWNLOAD NA_DEM
         #COPY NA_DEM TO PROJECT DIRECTORY
+        #CLIP NA_DEM
     else:
+        print "na_dem.tif found in input directory. Copying to project directory"
         copy(na_dem_path,na_dem_project_path)
+        print "Done."
     return  
+def load_tiffs(proj_dir, tiffs):
+##--Load the na_dem
+    #na_dem=Tiff(proj_dir,"na_dem.tif")
+##--Get all the files in the project directory needed - grouped into like files
+##--felps==pitRemove
+##--twis==TWI DEMS
+    felps_names=glob.glob(os.path.join(proj_dir,"felp*.tif"))
+    twis_names=glob.glob(os.path.join(proj_dir,"twi*.tif"))
+##--Convert to Tiff objects
+    twis=list()
+    felps=list()
+    for tif in twis_names:
+        temp = Tiff(proj_dir,tif)
+        twis.append(temp)
+    for tif in felps_names:
+        temp = Tiff(proj_dir,tif)
+        felps.append(temp)
+##--Merge each type into 1 file
+    twi_1=twis.pop(0)
+    felp_1=felps.pop(0)
+    pit=felp_1.mergeTiff(felps,proj_dir,"pit.tif")
+    twi=twi_1.mergeTiff(twis,proj_dir,"twi.tif")
+
+    return twi, pit
+def get_dayment_files(params,start,end):
+    
+    return
 if __name__ == '__main__':
     main()
