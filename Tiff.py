@@ -87,6 +87,12 @@ class Tiff:
         self.DAYMET_tile.append(ulTile)
         lrTile = int(self.stTile + ((lrLat - self.stLat) / 2) * 180 + (lrLon - self.stLon) / 2)
         self.DAYMET_tile.append(lrTile)
+####################################
+        for i in range(int((ulLat-lrLat) / 2) +1):
+            for j in range(int((lrLon-ulLon) / 2) +1):
+                tarTile = ulTile - i * 180 + j
+                #print tarTile
+############################3     
     def calculateRegion(self):
         command = ['gdalinfo', self.filepath]
         process=Popen(command, stdout=PIPE, shell=False)
@@ -101,21 +107,23 @@ class Tiff:
                 line = line.split(',')
                 self.region=line[1]
     def mergeTiff(self,other,path,output):
-        if not os.path.isfile(other):
-            sys.exit("File " + other + " does not exist")
-        if not os.path.exists(output):
+        for tif in other:
+            if not os.path.isfile(tif.filepath):
+                sys.exit("File " + tif + " does not exist")
+        if not os.path.exists(os.path.join(path,output)):
         ##--Generate Command
             command = ['gdalwarp','-overwrite']
             command.append(self.filepath)
-            command.append(other.filepath)
-            command.append(output)
+            for tif in other:
+                command.append(tif.filepath)
+            command.append(os.path.join(path,output))
         ##--Execute
             process = Popen(command, stdout=PIPE, shell=False)
             stderr=process.communicate()
             if process.returncode != 0:
                 print stderr
             else:
-                print "Finished merging " + output + ".\n"
+                print "Finished merging " + output
             new_tiff=Tiff(path,output)
             return new_tiff
         else:
@@ -138,3 +146,6 @@ class Tiff:
         stderr=process.communicate()
         if process.returncode != 0:
             sys.exit(stderr)
+def createMultiBandTiff():
+    print "CreateMultiBandTiff"
+    return
