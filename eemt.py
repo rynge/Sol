@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import sys
 import os
 import argparse
@@ -8,15 +10,18 @@ import glob
 import math, decimal
 import tarfile
 import urllib
+import eemt_workqueue
 from os.path import expanduser
 from subprocess import Popen, PIPE
 from shutil import copy
 from Tiff import Tiff
 
+
 DAYMET_URL="http://thredds.daac.ornl.gov/thredds/fileServer/ornldaac/1219/tiles/"
 DAYMET_PARAMS=["tmin","tmax","prcp"]
 
 def main():
+
     os.chdir("/home/posideon/professional/CZO/data/south_southern_sierra_snow_off/pitRemove")
     test=Tiff("","pit.tif")
 
@@ -59,12 +64,27 @@ def main():
     print "  Project Name: " + args.name
     conf=raw_input("Press [n\N] to cancel or any key to begin")
     if conf=="n" or conf=="N":
-        sys.exit("User quit")        
+        sys.exit("User quit")
+        
+##--Start Main Program
+##--Create temp directory     
     proj_dir=create_temp_directory()
+
+##--Extract input files into the temp directory
     extract_files(args.input, proj_dir, files)
+##--Retrieve NA_DEM
     get_na_dem(args.input, proj_dir)
+##--Load input tiffs
     twi,pit,na_dem = load_tiffs(proj_dir, tiffs)
+    wq=eemt_workqueue.init_workqueue(proj_dir, 9123, "CALLAHAN")
+    wq,tasks = eemt_workqueue.create_tasks_eemt_topo(wq, proj_dir)
+    print "Number of Tasks submitted: %d" % tasks
+    eemt_workqueue.run(wq,tasks)
+    quit()
+##--Download DAYMET Files
     get_dayment_files(DAYMET_PARAMS, twi.tiles, args.start_year, args.end_year, proj_dir)
+##--Convert DAYMET files from *.nc to *.tif
+
     return
 def extract_files(input_dir, project_dir, files):
     print "Extracting OpenTopo DEMS"
@@ -95,6 +115,8 @@ def get_na_dem(input_dir,project_dir):
     na_dem_project_path=os.path.join(project_dir,"na_dem.tif")
     if not os.path.isfile(na_dem_path):
         print "na_dem.tif not found in input directory: " + input_dir + "."
+        print "Downloading na_dem.tif from remote source not yet implemented. Exiting"
+        sys.exit(1)
         print "Now downloading na_dem.tif..."
         #TODO
         #DOWNLOAD NA_DEM
@@ -151,8 +173,7 @@ def get_dayment_files(params,tiles,start,end,proj_dir):
             for param in params:
                 print "     Downloading " + param + " data from DAYMET"
                 param_url=DAYMET_URL+`year`+"/"+`tile`+"_"+`year`+"/"+param+".nc"
-                out = urllib.urlretrieve(param_url)
-                print out
+                out = urllib.urlretrieve(param_url,os.path.join(proj_dir,param+".nc"))
     print "All DAYMET data downloaded"
     return
 if __name__ == '__main__':
