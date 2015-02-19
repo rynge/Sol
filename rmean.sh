@@ -40,12 +40,17 @@ export GISRC=${GRASSRC}
 ###############################################################################
 
 #Create output structure
-if [ ! -e ./global ]; then
-    mkdir global
-fi
-if [ ! -e ./insol ]; then
-    mkdir insol
-fi
+#if [ ! -e ./global ]; then
+    mkdir -p global/daily
+    mkdir -p global/monthly
+    mkdir -p global/annual
+#fi
+#if [ ! -e ./insol ]; then
+    mkdir -p insol/daily
+    mkdir -p insol/monthly
+    mkdir -p insol/annual
+#fi
+
 
 #Create location directory structure
 if [ ! -e $LOCATION ]; then
@@ -99,7 +104,7 @@ while (( "$#" )); do
     echo $1 > temp
     NAME=`cut -d'.' -f2 temp`
     echo $NAME > temp
-    NAME=`cut -d'/' -f3 temp`
+    NAME=`cut -d'/' -f4 temp`
     r.in.gdal input=$1 output=$NAME
     shift
 done
@@ -107,13 +112,31 @@ rm temp
 
 g.region -s rast=$NAME
 
-#Compute average for global irradiation
-r.series input="`g.mlist pattern='total_sun_day_*' sep=,`" output=total_sun_${MONTH}_average method=sum
-r.series input="`g.mlist pattern='hours_sun_day_*' sep=,`" output=insol_time_${MONTH}_average method=sum
+#Compute average 
+r.series -n input="`g.mlist pattern='total_sun_day_*' sep=,`" output=total_sun_${MONTH}_average method=average
+r.series -n input="`g.mlist pattern='hours_sun_day_*' sep=,`" output=hours_sun_${MONTH}_average method=average
+#Compute median
+r.series -n input="`g.mlist pattern='total_sun_day_*' sep=,`" output=total_sun_${MONTH}_median method=median
+r.series -n input="`g.mlist pattern='hours_sun_day_*' sep=,`" output=hours_sun_${MONTH}_median method=median
+#Compute standard deviation
+r.series -n input="`g.mlist pattern='total_sun_day_*' sep=,`" output=total_sun_${MONTH}_stddev method=stddev
+r.series -n input="`g.mlist pattern='hours_sun_day_*' sep=,`" output=hours_sun_${MONTH}_stddev method=stddev
+#Compute variance
+r.series -n input="`g.mlist pattern='total_sun_day_*' sep=,`" output=total_sun_${MONTH}_variance method=variance
+r.series -n input="`g.mlist pattern='hours_sun_day_*' sep=,`" output=hours_sun_${MONTH}_variance method=variance
 
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun_${MONTH}_average output=total_sun_${MONTH}_average.tif
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=insol_time_${MONTH}_average output=insol_time_${MONTH}_average.tif
-
+#Average Maps
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun_${MONTH}_average output=global/monthly/total_sun_${MONTH}_average.tif
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=hours_sun_${MONTH}_average output=insol/monthly/hours_sun_${MONTH}_average.tif
+#Median Maps
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun_${MONTH}_median output=global/monthly/total_sun_${MONTH}_median.tif
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=hours_sun_${MONTH}_median output=insol/monthly/hours_sun_${MONTH}_median.tif
+#Standard Deviation Maps
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun_${MONTH}_stddev output=global/monthly/total_sun_${MONTH}_stddev.tif
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=hours_sun_${MONTH}_stddev output=insol/monthly/hours_sun_${MONTH}_stddev.tif
+#Variance Maps
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun_${MONTH}_variance output=global/monthly/total_sun_${MONTH}_variance.tif
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=hours_sun_${MONTH}_variance output=insol/monthly/hours_sun_${MONTH}_variance.tif
 ###############################################################################
 #GRASS OPERATIONS COMPLETE => CLEAN UP FILES
 ###############################################################################
