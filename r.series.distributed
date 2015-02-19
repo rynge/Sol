@@ -90,8 +90,43 @@ def load_monthly_tasks(wq,proj_dir):
         tasks = tasks+1
         i = i + 1
     return wq, tasks
-            
-
+def load_annual_tasks(wq,proj_dir):
+    tasks = 0
+    rmean="rmean.sh"
+    global_inputs = ""
+    insol_inputs  = ""
+    command="./rmean.sh annual -D %s" % proj_dir
+    total_sun_avg = proj_dir+"/global/annual/total_sun_annual_average.tif" 
+    hours_sun_avg = proj_dir+"/insol/annual/hours_sun_annual_average.tif" 
+    total_sun_med = proj_dir+"/global/annual/total_sun_annual_median.tif" 
+    hours_sun_med = proj_dir+"/insol/annual/hours_sun_annual_median.tif" 
+    total_sun_std = proj_dir+"/global/annual/total_sun_annual_stddev.tif" 
+    hours_sun_std = proj_dir+"/insol/annual/hours_sun_annual_stddev.tif" 
+    total_sun_var = proj_dir+"/global/annual/total_sun_annual_variance.tif" 
+    hours_sun_var = proj_dir+"/insol/annual/hours_sun_annual_variance.tif" 
+##--Need to create command for every day in the year
+    for day in range(1,366):
+        global_inputs = global_inputs + " ./global/daily/total_sun_day_%d.tif" % day
+        insol_inputs  = insol_inputs  + " ./insol/daily/hours_sun_day_%d.tif" % day
+    command = command + global_inputs + " " + insol_inputs
+##Create Task
+    task = Task(command)
+##--Input Files
+    for day in range(1, 366):
+        task.specify_input_file(proj_dir+"/global/daily/total_sun_day_%d.tif" % day, "global/daily/total_sun_day_%d.tif" % day, cache = False)
+        task.specify_input_file(proj_dir+"/insol/daily/hours_sun_day_%d.tif" % day, "insol/daily/hours_sun_day_%d.tif" % day, cache = False)
+    task.specify_input_file(rmean,"rmean.sh",cache=True)
+    task.specify_output_file(total_sun_avg, "global/monthly/total_sun_annual_average.tif", cache = False)
+    task.specify_output_file(hours_sun_avg, "insol/monthly/hours_sun_annual_average.tif", cache = False)
+    task.specify_output_file(total_sun_med, "global/monthly/total_sun_annual_median.tif", cache = False)
+    task.specify_output_file(hours_sun_med, "insol/monthly/hours_sun_annual_median.tif", cache = False)
+    task.specify_output_file(total_sun_std, "global/monthly/total_sun_annual_stddev.tif", cache = False)
+    task.specify_output_file(hours_sun_std, "insol/monthly/hours_sun_annual_stddev.tif", cache = False)
+    task.specify_output_file(total_sun_var, "global/monthly/total_sun_annual_variance.tif", cache = False)
+    task.specify_output_file(hours_sun_var, "insol/monthly/hours_sun_annual_variance.tif", cache = False)
+    wq.submit(task)
+    tasks = tasks + 1
+    return wq,tasks
 def main():
 ##--Set up Arguments
     parser = argparse.ArgumentParser()
