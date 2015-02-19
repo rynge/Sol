@@ -68,8 +68,8 @@ def load_monthly_tasks(wq,proj_dir):
         for day in range(start_day,end_day+1):
             task.specify_input_file("./global/total_sun_day_%d.tif" % day, "global/total_sun_day_%d.tif" % day, cache = False)
             task.specify_input_file("./insol/hours_sun_day_%d.tif" % day, "insol/hours_sun_day_%d.tif" % day, cache = False)
-        task.specify_output_file("./global/total_sun_%s.tif" % month, "total_sun_%s.tif" %month, cache = False)
-        task.specify_output_file("./insol/hours_sun_%s.tif" % month, "hours_sun_%s.tif" % month, cache = False)
+        task.specify_output_file("./global/total_sun_%s_average.tif" % month, "total_sun_%s_average.tif" %month, cache = False)
+        task.specify_output_file("./insol/hours_sun_%s_average.tif" % month, "hours_sun_%s_average.tif" % month, cache = False)
     ##--Submit
         wq.submit(task)
         tasks = tasks+1
