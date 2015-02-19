@@ -65,7 +65,22 @@ def load_monthly_tasks(wq,proj_dir):
         wq.submit(task)
         i=i+1
 def main():
-    load_monthly_tasks("wq",os.getcwd())
+    port = 9101
+    name = "r.series.dist"
+    workqueue= WorkQueue(port)
+    workqueue.specify_name(name)
+    cctools_debug_flags_set("all")
+    cctools_debug_config_file("wq.debug")
+
+
+    workqueue = load_monthly_tasks("wq",os.getcwd())
+    while not workqueue.empty():
+        t = workqueue.wait(5)
+        if t:
+            print("Task complete")
+            if t.return_status != 0:
+                print("Task error!")
+    print("All tasks complete")
 
 if __name__ == '__main__':
     main()
