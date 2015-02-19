@@ -1,0 +1,69 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+
+
+#Globals
+MONTHS=["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"]
+MONTH_DAYS=[[0,31],[32,59],[60,90],[91,120],[121,150],[152,181],[182,212],[213,243],[244,273],[274,304],[305,334],[335,365]]
+
+
+
+#Default printing functions
+def error(*objs):
+    print("ERROR: ", *objs, file=sys.stderr)
+def warning(*objs):
+    print("WARNING: ", *objs, file=sys.stderr)
+
+#Imports
+import argparse
+import sys, os
+import imp
+
+try:
+    imp.find_module('work_queue')
+    found = True
+except ImportError:
+    error("Could not find work_queue.\n\tAdd work_queue module location to PYTHONPATH")
+    exit(1)
+if found:
+    from work_queue import *
+
+#Get install location
+script_location=os.path.abspath(os.path.dirname(sys.argv[0]))
+
+def load_tasks(wq, proj_dir, freq, dem):
+    tasks=0
+##--Paths for input files
+    rmean="rmean.sh"
+    if(freq == "MONTHLY"):
+    ##--Do monthly stuff
+        print("MONTHLY")
+    elif(freq == "YEARLY"):
+        print("YEARLY")
+    else:
+        error("Invalid frequency!")
+        exit(1)
+def load_monthly_tasks(wq,proj_dir):
+    tasks=0
+    i=0
+    rmean="rmean.sh"
+    for month in MONTHS:
+        start_day=MONTH_DAYS[i][0]
+        end_day=MONTH_DAYS[i][1]
+        global_inputs = ""
+        insol_inputs = ""
+        for day in range(start_day,end_day+1):
+        ##--Input files
+            global_inputs = global_inputs + " ./global/total_sun_day_%d.tif" % day
+            insol_inputs = insol_inputs + " ./insol/hours_sun_day_%d.tif" % day
+        command = "./rmean.sh " + month + " " + global_inputs + " " + insol_inputs
+        print(command)
+        i=i+1
+    
+def main():
+    load_monthly_tasks("wq",os.getcwd())
+
+if __name__ == '__main__':
+    main()
+
