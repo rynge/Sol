@@ -101,7 +101,7 @@ while (( "$#" )); do
     echo $NAME > temp
     NAME=`cut -d'/' -f2 temp`
 
-    r.in.gdal input="."${1} output=$NAME
+    r.in.gdal input="./"${1} output=$NAME
     shift
 done
 rm temp
