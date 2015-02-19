@@ -73,7 +73,7 @@ def main():
     cctools_debug_config_file("wq.debug")
 
 
-    workqueue = load_monthly_tasks("wq",os.getcwd())
+    workqueue = load_monthly_tasks(workqueue,os.getcwd())
     while not workqueue.empty():
         t = workqueue.wait(5)
         if t:
