@@ -108,12 +108,11 @@ rm temp
 g.region -s rast=$NAME
 
 #Compute average for global irradiation
-r.series input="`g.mlist pattern='total_sun_day_*' sep=,`" output=total_sun_${month}_average method=sum
-r.series input="`g.mlist pattern='hours_sun_day_*' sep=,`" output=insol_time_${month}_average method=sum
+r.series input="`g.mlist pattern='total_sun_day_*' sep=,`" output=total_sun_${MONTH}_average method=sum
+r.series input="`g.mlist pattern='hours_sun_day_*' sep=,`" output=insol_time_${MONTH}_average method=sum
 
-
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun_${month}_average output=total_sun_${MONTH}_average.tif
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=insol_time_${month}_average output=insol_time_${MONTH}_average.tif
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun_${MONTH}_average output=total_sun_${MONTH}_average.tif
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=insol_time_${MONTH}_average output=insol_time_${MONTH}_average.tif
 
 ###############################################################################
 #GRASS OPERATIONS COMPLETE => CLEAN UP FILES
