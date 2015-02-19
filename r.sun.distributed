@@ -38,7 +38,7 @@ def load_tasks(wq, proj_dir, days, dem):
 ##--Paths for input files
     rsun = os.path.join("./rsun.sh")
     rsun="rsun.sh"
-    dem="pit_c.tif"
+#    dem="pit_c.tif"
     for day in days:
     ##--Paths for output files
         total_sun = proj_dir+"/global/total_sun_day_%d.tif" % day
