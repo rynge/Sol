@@ -89,17 +89,17 @@ echo "GRASS_GUI: text" >> $GRASSRC
 ###############################################################################
 
 #Create new projection info
-g.proj -c georef=$!
+g.proj -c georef=$1
 
 #Import Dems
 g.mremove -f "*"
-
+echo "IMPORTING"
 #Need to grab and import every tif
 while (( "$#" )); do
     echo $1 > temp
     NAME=`cut -d'.' -f1 temp`
     echo $NAME > temp
-    NAME=`cut -d'/' -f3 temp`
+    NAME=`cut -d'/' -f2 temp`
 
     r.in.gdal input="."${1} output=$NAME
     shift
