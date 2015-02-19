@@ -54,25 +54,41 @@ def load_monthly_tasks(wq,proj_dir):
     for month in MONTHS:
         start_day = MONTH_DAYS[i][0]
         end_day   = MONTH_DAYS[i][1]
-        command = "./rmean.sh %s -D ." % month
+        command = "./rmean.sh %s -D %s" % (month,proj_dir)
         global_inputs = ""
         insol_inputs = ""
+        total_sun_avg = proj_dir+"/global/monthly/total_sun_%s_average.tif" % month
+    	hours_sun_avg = proj_dir+"/insol/monthly/hours_sun_%s_average.tif" % month
+        total_sun_med = proj_dir+"/global/monthly/total_sun_%s_median.tif" % month
+    	hours_sun_med = proj_dir+"/insol/monthly/hours_sun_%s_median.tif" % month
+        total_sun_std = proj_dir+"/global/monthly/total_sun_%s_stddev.tif" % month
+    	hours_sun_std = proj_dir+"/insol/monthly/hours_sun_%s_stddev.tif" % month
+        total_sun_var = proj_dir+"/global/monthly/total_sun_%s_variance.tif" % month
+    	hours_sun_var = proj_dir+"/insol/monthly/hours_sun_%s_variance.tif" % month
     ##--Need to create command for every day in this month
         for day in range(start_day,end_day+1):
-            global_inputs = global_inputs + " ./global/total_sun_day_%d.tif" % day
-            insol_inputs  = insol_inputs  + " ./insol/hours_sun_day_%d.tif" % day
+            global_inputs = global_inputs + " ./global/daily/total_sun_day_%d.tif" % day
+            insol_inputs  = insol_inputs  + " ./insol/daily/hours_sun_day_%d.tif" % day
         command = command + global_inputs + " " + insol_inputs
     ##--Create Task
         task = Task(command)
     ##--Input Files
         for day in range(start_day,end_day+1):
-            task.specify_input_file("./global/total_sun_day_%d.tif" % day, "global/total_sun_day_%d.tif" % day, cache = False)
-            task.specify_input_file("./insol/hours_sun_day_%d.tif" % day, "insol/hours_sun_day_%d.tif" % day, cache = False)
-        task.specify_output_file("./global/total_sun_%s_average.tif" % month, "total_sun_%s_average.tif" %month, cache = False)
-        task.specify_output_file("./insol/hours_sun_%s_average.tif" % month, "hours_sun_%s_average.tif" % month, cache = False)
+            task.specify_input_file(proj_dir+"/global/daily/total_sun_day_%d.tif" % day, "global/daily/total_sun_day_%d.tif" % day, cache = False)
+            task.specify_input_file(proj_dir+"/insol/daily/hours_sun_day_%d.tif" % day, "insol/daily/hours_sun_day_%d.tif" % day, cache = False)
+	task.specify_input_file(rmean,"rmean.sh",cache=True)
+        task.specify_output_file(total_sun_avg, "global/monthly/total_sun_%s_average.tif" %month, cache = False)
+        task.specify_output_file(hours_sun_avg, "insol/monthly/hours_sun_%s_average.tif" % month, cache = False)
+        task.specify_output_file(total_sun_med, "global/monthly/total_sun_%s_median.tif" %month, cache = False)
+        task.specify_output_file(hours_sun_med, "insol/monthly/hours_sun_%s_median.tif" % month, cache = False)
+        task.specify_output_file(total_sun_std, "global/monthly/total_sun_%s_stddev.tif" %month, cache = False)
+        task.specify_output_file(hours_sun_std, "insol/monthly/hours_sun_%s_stddev.tif" % month, cache = False)
+        task.specify_output_file(total_sun_var, "global/monthly/total_sun_%s_variance.tif" %month, cache = False)
+        task.specify_output_file(hours_sun_var, "insol/monthly/hours_sun_%s_variance.tif" % month, cache = False)
     ##--Submit
         wq.submit(task)
         tasks = tasks+1
+        i = i + 1
     return wq, tasks
             
 
@@ -81,14 +97,19 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--with-workqueue',dest="workqueue")
     parser.add_argument('--frequency','-f',dest="freq")
+    parser.add_argument('args',nargs=1)
     args = parser.parse_args()
 ##--Get arguments from argparser (for readability)
+    dem = args.args[0]
     workqueue=args.workqueue
     freq=args.freq
     port = 9101
     name = "r.series.dist"
-    projDir = os.getcwd()
 ##--Argument Validation
+##--Directory
+    projDir = os.path.join("./",os.path.basename(dem)[:-4])
+    if not os.path.exists(os.path.join(projDir,"global")):
+        error("We cannot find the results of r.sun.distributed")
 ##--Frequency
     if freq != "MONTHLY" and freq != "ANNUAL":
         error("Frequency must be \"MONTHLY\" or \"ANNUAL\"")
@@ -106,17 +127,23 @@ def main():
         workqueue, tasks = load_monthly_tasks(workqueue,projDir)        
         print("%d tasks submitted" % tasks)
     elif freq == "ANNUAL":
-        workqueue = load_annual_tasks(workqueue,projDir)
+        workqueue, tasks = load_annual_tasks(workqueue,projDir)
 
-
+    errors=0
+    completed=0
     while not workqueue.empty():
         t = workqueue.wait(5)
         if t:
-            print("Task complete")
             if t.return_status != 0:
-                print("Task error!")
-    print("All tasks complete")
-
+                warning("Task %d did not return successfully!" % t.id)
+                print(t.output)
+                errors = errors + 1
+            else:
+                completed = completed + 1
+    if errors == 0:
+        print("All tasks completed successfully!")
+    else:
+        print("%d of %d tasks completed. See outputs for errors" % (completed,tasks))
 if __name__ == '__main__':
     main()
 
