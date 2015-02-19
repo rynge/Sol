@@ -48,10 +48,14 @@ export GISRC=${GRASSRC}
 
 #Create output structure
 if [ ! -e ./global ]; then
-    mkdir global
+    mkdir -p global/daily
+    mkdir -p global/monthly
+    mkdir -p global/annual
 fi
 if [ ! -e ./insol ]; then
-    mkdir insol
+    mkdir -p insol/daily
+    mkdir -p insol/monthly
+    mkdir -p insol/annual
 fi
 
 #Create location directory structure
@@ -115,8 +119,8 @@ r.slope.aspect elevation=dem slope=slope aspect=aspect
 r.sun elevin=dem aspin=aspect slopein=slope day=$DAY step=$STEPSIZE dist=$INTERVAL insol_time=hours_sun glob_rad=total_sun
 
 #Output files
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun output=./global/total_sun_${DAY}.tif
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=hours_sun output=./insol/hours_sun_${DAY}.tif
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun output=./global/daily/total_sun_day_${DAY}.tif
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=hours_sun output=./insol/daily/hours_sun_day_${DAY}.tif
 
 ###############################################################################
 #GRASS OPERATIONS COMPLETE => CLEAN UP FILES
