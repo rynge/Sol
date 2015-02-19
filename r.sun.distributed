@@ -41,18 +41,18 @@ def load_tasks(wq, proj_dir, days, dem):
 #    dem="pit_c.tif"
     for day in days:
     ##--Paths for output files
-        total_sun = proj_dir+"/global/total_sun_day_%d.tif" % day
-        hours_sun = proj_dir+"/insol/hours_sun_day_%d.tif" % day
+        total_sun = proj_dir+"/global/daily/total_sun_day_%d.tif" % day
+        hours_sun = proj_dir+"/insol/daily/hours_sun_day_%d.tif" % day
     ##--Command for wq to run
-        command = "./rsun.sh dem.tif -d %d -D ." % day
+        command = "./rsun.sh dem.tif -d %d -D %s" % (day,proj_dir)
     ##--Create Task
         task = Task(command)
     ##--Input Files
         task.specify_input_file(dem,"dem.tif",WORK_QUEUE_INPUT,cache=False)
         task.specify_input_file(rsun,"rsun.sh", WORK_QUEUE_INPUT, cache=False)
     ##--Output Files
-        task.specify_output_file(total_sun, "global/total_sun_day_%d.tif" % day, cache = False)
-        task.specify_output_file(hours_sun, "insol/hours_sun_day_%d.tif" % day, cache = False)
+        task.specify_output_file(total_sun, "global/daily/total_sun_day_%d.tif" % day, cache = False)
+        task.specify_output_file(hours_sun, "insol/daily/hours_sun_day_%d.tif" % day, cache = False)
     ##--Submit
         wq.submit(task)
         tasks=tasks+1
@@ -62,6 +62,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--with-workqueue', dest="workqueue");
     parser.add_argument('--days','-d',nargs='*',dest="days");
+    parser.add_argument('--directory','-D',dest="dir")
     parser.add_argument('args',nargs=1);
     args=parser.parse_args()
 
@@ -71,13 +72,26 @@ def main():
     days = args.days
     port = 9101
     name = "r.sun.dist"
-    proj_dir = os.getcwd()
+    proj_dir = args.dir
 
 ##--Make sure DEM is really real
     if not os.path.isfile(dem):
         error("DEM not found!")
     if dem[-4:] != ".tif":
         error("DEM does not end in .tif\nProvide a valid file")
+##--Check directory
+    if not proj_dir:
+        proj_dir=os.path.join("./",os.path.basename(dem)[:-4])
+    if not os.path.exists(os.path.join(proj_dir,"global")):
+        os.makedirs(os.path.join(proj_dir,"global"))
+        os.makedirs(os.path.join(proj_dir,"global/daily"))
+        os.makedirs(os.path.join(proj_dir,"global/monthly"))
+        os.makedirs(os.path.join(proj_dir,"global/annual"))
+    if not os.path.exists(os.path.join(proj_dir,"insol")):
+        os.makedirs(os.path.join(proj_dir,"insol"))
+        os.makedirs(os.path.join(proj_dir,"insol/daily"))
+        os.makedirs(os.path.join(proj_dir,"insol/monthly"))
+        os.makedirs(os.path.join(proj_dir,"insol/annual"))
     #WQ was not provided, so we need to create our own
     if not workqueue:
         try:
@@ -96,13 +110,14 @@ def main():
         days = [int(num) for num in days]
 
     workqueue,tasks = load_tasks(workqueue,proj_dir,days, dem)
-
+    print("Waiting for tasks to return")
     while not workqueue.empty():
         t = workqueue.wait(5)
         if t:
             print("Task complete")
             if t.return_status != 0:
                 print("Task error!")
+                print(t.output)
     print("All tasks complete")
 
 if __name__ == '__main__':
