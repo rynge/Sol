@@ -58,9 +58,12 @@ def load_monthly_tasks(wq,proj_dir):
             global_inputs = global_inputs + " ./global/total_sun_day_%d.tif" % day
             insol_inputs = insol_inputs + " ./insol/hours_sun_day_%d.tif" % day
         command = "./rmean.sh " + month + " " + global_inputs + " " + insol_inputs
-        print(command)
+        task = Task(command)
+        for day in range(start_day,end_day+1):
+            task.specify_input_file("./global/total_sun_day_%d.tif" % day, "total_sun_day_%d.tif" % day, cache=False)
+            task.specify_input_file("./insol/insol_time_day_%d.tif" % day, "insol_time_day_%d.tif" % day, cache=False)
+        wq.submit(task)
         i=i+1
-    
 def main():
     load_monthly_tasks("wq",os.getcwd())
 
