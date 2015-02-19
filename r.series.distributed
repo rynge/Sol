@@ -54,7 +54,7 @@ def load_monthly_tasks(wq,proj_dir):
     for month in MONTHS:
         start_day = MONTH_DAYS[i][0]
         end_day   = MONTH_DAYS[i][1]
-        command = "./rmean.sh -D ."
+        command = "./rmean.sh %s -D ." % month
         global_inputs = ""
         insol_inputs = ""
     ##--Need to create command for every day in this month
