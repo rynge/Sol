@@ -2,6 +2,18 @@
 
 from __future__ import print_function
 
+"""
+r.series.distributed:  This program was written by N R Callahan in Spring 2015. 
+See manual pages for details.
+(C) 2014 Copywrite N R Callahan, University of Arizona, Tucson, Arizona
+email: nicholas.r.callahan@gmail.com
+"""
+
+"""
+INSERT LICENSE HERE
+"""
+
+
 
 #Globals
 MONTHS=["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"]
@@ -12,6 +24,7 @@ MONTH_DAYS=[[0,31],[32,59],[60,90],[91,120],[121,150],[152,181],[182,212],[213,2
 #Default printing functions
 def error(*objs):
     print("ERROR: ", *objs, file=sys.stderr)
+    exit(1)
 def warning(*objs):
     print("WARNING: ", *objs, file=sys.stderr)
 
@@ -20,6 +33,7 @@ import argparse
 import sys, os
 import imp
 
+#We need work_queue to be installed, but want to die gracefully
 try:
     imp.find_module('work_queue')
     found = True
@@ -32,48 +46,69 @@ if found:
 #Get install location
 script_location=os.path.abspath(os.path.dirname(sys.argv[0]))
 
-def load_tasks(wq, proj_dir, freq, dem):
-    tasks=0
-##--Paths for input files
-    rmean="rmean.sh"
-    if(freq == "MONTHLY"):
-    ##--Do monthly stuff
-        print("MONTHLY")
-    elif(freq == "YEARLY"):
-        print("YEARLY")
-    else:
-        error("Invalid frequency!")
-        exit(1)
 def load_monthly_tasks(wq,proj_dir):
-    tasks=0
-    i=0
+    tasks = 0 
     rmean="rmean.sh"
+    i = 0
+##--There will be one task per month
     for month in MONTHS:
-        start_day=MONTH_DAYS[i][0]
-        end_day=MONTH_DAYS[i][1]
+        start_day = MONTH_DAYS[i][0]
+        end_day   = MONTH_DAYS[i][1]
+        command = "./rmean.sh -D ."
         global_inputs = ""
         insol_inputs = ""
+    ##--Need to create command for every day in this month
         for day in range(start_day,end_day+1):
-        ##--Input files
             global_inputs = global_inputs + " ./global/total_sun_day_%d.tif" % day
-            insol_inputs = insol_inputs + " ./insol/hours_sun_day_%d.tif" % day
-        command = "./rmean.sh " + month + " " + global_inputs + " " + insol_inputs
+            insol_inputs  = insol_inputs  + " ./insol/hours_sun_day_%d.tif" % day
+        command = command + global_inputs + " " + insol_inputs
+    ##--Create Task
         task = Task(command)
+    ##--Input Files
         for day in range(start_day,end_day+1):
-            task.specify_input_file("./global/total_sun_day_%d.tif" % day, "total_sun_day_%d.tif" % day, cache=False)
-            task.specify_input_file("./insol/insol_time_day_%d.tif" % day, "insol_time_day_%d.tif" % day, cache=False)
+            task.specify_input_file("./global/total_sun_day_%d.tif" % day, "global/total_sun_day_%d.tif" % day, cache = False)
+            task.specify_input_file("./insol/hours_sun_day_%d.tif" % day, "insol/hours_sun_day_%d.tif" % day, cache = False)
+        task.specify_output_file("./global/total_sun_%s.tif" % month, "total_sun_%s.tif" %month, cache = False)
+        task.specify_output_file("./insol/hours_sun_%s.tif" % month, "hours_sun_%s.tif" % month, cache = False)
+    ##--Submit
         wq.submit(task)
-        i=i+1
+        tasks = tasks+1
+    return wq, tasks
+            
+
 def main():
+##--Set up Arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--with-workqueue',dest="workqueue")
+    parser.add_argument('--frequency','-f',dest="freq")
+    args = parser.parse_args()
+##--Get arguments from argparser (for readability)
+    workqueue=args.workqueue
+    freq=args.freq
     port = 9101
     name = "r.series.dist"
-    workqueue= WorkQueue(port)
-    workqueue.specify_name(name)
-    cctools_debug_flags_set("all")
-    cctools_debug_config_file("wq.debug")
+    projDir = os.getcwd()
+##--Argument Validation
+##--Frequency
+    if freq != "MONTHLY" and freq != "ANNUAL":
+        error("Frequency must be \"MONTHLY\" or \"ANNUAL\"")
+##--Workqueue
+    if not workqueue:
+        try:
+            workqueue = WorkQueue(port)
+            workqueue.specify_name(name)
+            cctools_debug_flags_set("all")
+            cctools_debug_config_file("wq.debug")
+        except:
+            error("WorkQueue not created")
+##--Call correct series task
+    if freq == "MONTHLY":
+        workqueue, tasks = load_monthly_tasks(workqueue,projDir)        
+        print("%d tasks submitted" % tasks)
+    elif freq == "ANNUAL":
+        workqueue = load_annual_tasks(workqueue,projDir)
 
 
-    workqueue = load_monthly_tasks(workqueue,os.getcwd())
     while not workqueue.empty():
         t = workqueue.wait(5)
         if t:

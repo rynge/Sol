@@ -97,22 +97,23 @@ echo "IMPORTING"
 #Need to grab and import every tif
 while (( "$#" )); do
     echo $1 > temp
-    NAME=`cut -d'.' -f1 temp`
+    NAME=`cut -d'.' -f2 temp`
     echo $NAME > temp
-    NAME=`cut -d'/' -f2 temp`
-
-    r.in.gdal input="./"${1} output=$NAME
+    NAME=`cut -d'/' -f3 temp`
+    r.in.gdal input=$1 output=$NAME
     shift
 done
 rm temp
 
+g.region -s rast=$NAME
+
 #Compute average for global irradiation
-r.series input="`g.mlist pattern='total_sun_day_*' sep=,`" output=total_sun_${month}_average method=average
-r.series input="`g.mlist pattern='insol_time_day_*' sep=,`" output=insol_time_${month}_average method=average
+r.series input="`g.mlist pattern='total_sun_day_*' sep=,`" output=total_sun_${month}_average method=sum
+r.series input="`g.mlist pattern='hours_sun_day_*' sep=,`" output=insol_time_${month}_average method=sum
 
 
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun_${MONTH}_average output=total_sun_${MONTH}_average.tif
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=insol_time_${MONTH}_average output=insol_time_${MONTH}_average.tif
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun_${month}_average output=total_sun_${MONTH}_average.tif
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=insol_time_${month}_average output=insol_time_${MONTH}_average.tif
 
 ###############################################################################
 #GRASS OPERATIONS COMPLETE => CLEAN UP FILES
