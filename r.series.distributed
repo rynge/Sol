@@ -48,7 +48,7 @@ script_location=os.path.abspath(os.path.dirname(sys.argv[0]))
 
 def load_monthly_tasks(wq,proj_dir):
     tasks = 0 
-    rmean="rmean.sh"
+    rmean = os.path.join(script_location,"rmean.sh")
     i = 0
 ##--There will be one task per month
     for month in MONTHS:
@@ -133,6 +133,7 @@ def main():
     parser.add_argument('--with-workqueue',dest="workqueue")
     parser.add_argument('--frequency','-f',dest="freq")
     parser.add_argument('--name','-f',dest="name")
+    parser.add_argument('--directory','-d',dest="dir")
     parser.add_argument('args',nargs=1)
     args = parser.parse_args()
 ##--Get arguments from argparser (for readability)
@@ -141,12 +142,14 @@ def main():
     freq=args.freq
     port = 9101
     name = args.name
+    projDir = args.dir
 ##--Argument Validation
 ##--Name
     if not name:
         name = "r.series.dist"
 ##--Directory
-    projDir = os.path.join("./",os.path.basename(dem)[:-4])
+    if not projDir:
+        projDir = os.path.join("./",os.path.basename(dem)[:-4])
     if not os.path.exists(os.path.join(projDir,"global")):
         error("We cannot find the results of r.sun.distributed")
 ##--Frequency
