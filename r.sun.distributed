@@ -63,6 +63,7 @@ def main():
     parser.add_argument('--with-workqueue', dest="workqueue");
     parser.add_argument('--days','-d',nargs='*',dest="days");
     parser.add_argument('--directory','-D',dest="dir")
+    parser.add_argument('--name','-n',dest="name")
     parser.add_argument('args',nargs=1);
     args=parser.parse_args()
 
@@ -71,9 +72,12 @@ def main():
     workqueue = args.workqueue
     days = args.days
     port = 9101
-    name = "r.sun.dist"
+    name = args.name
     proj_dir = args.dir
 
+##-Name
+    if not name:
+        name="r.sun.dist"
 ##--Make sure DEM is really real
     if not os.path.isfile(dem):
         error("DEM not found!")

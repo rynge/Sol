@@ -132,6 +132,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--with-workqueue',dest="workqueue")
     parser.add_argument('--frequency','-f',dest="freq")
+    parser.add_argument('--name','-f',dest="name")
     parser.add_argument('args',nargs=1)
     args = parser.parse_args()
 ##--Get arguments from argparser (for readability)
@@ -139,8 +140,11 @@ def main():
     workqueue=args.workqueue
     freq=args.freq
     port = 9101
-    name = "r.series.dist"
+    name = args.name
 ##--Argument Validation
+##--Name
+    if not name:
+        name = "r.series.dist"
 ##--Directory
     projDir = os.path.join("./",os.path.basename(dem)[:-4])
     if not os.path.exists(os.path.join(projDir,"global")):
