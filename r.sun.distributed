@@ -36,9 +36,7 @@ script_location = os.path.abspath(os.path.dirname(sys.argv[0]))
 def load_tasks(wq, proj_dir, days, dem):
     tasks=0
 ##--Paths for input files
-    rsun = os.path.join("./rsun.sh")
-    rsun="rsun.sh"
-#    dem="pit_c.tif"
+    rsun = os.path.join(script_location,"rsun.sh")
     for day in days:
     ##--Paths for output files
         total_sun = proj_dir+"/global/daily/total_sun_day_%d.tif" % day
