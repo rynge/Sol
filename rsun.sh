@@ -121,6 +121,8 @@ r.sun elevin=dem aspin=aspect slopein=slope day=$DAY step=$STEPSIZE dist=$INTERV
 #Output files
 r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun output=./global/daily/total_sun_day_${DAY}.tif
 r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=hours_sun output=./insol/daily/hours_sun_day_${DAY}.tif
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=slope output=./slope.tif
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=aspect output=./aspect.tif
 
 ###############################################################################
 #GRASS OPERATIONS COMPLETE => CLEAN UP FILES

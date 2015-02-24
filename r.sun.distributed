@@ -41,6 +41,8 @@ def load_tasks(wq, proj_dir, days, dem):
     ##--Paths for output files
         total_sun = proj_dir+"/global/daily/total_sun_day_%d.tif" % day
         hours_sun = proj_dir+"/insol/daily/hours_sun_day_%d.tif" % day
+        slope = proj_dir+"/slope.tif"
+        aspect = proj_dir+"/aspect.tif"
     ##--Command for wq to run
         command = "./rsun.sh dem.tif -d %d -D %s" % (day,proj_dir)
     ##--Create Task
@@ -51,6 +53,8 @@ def load_tasks(wq, proj_dir, days, dem):
     ##--Output Files
         task.specify_output_file(total_sun, "global/daily/total_sun_day_%d.tif" % day, cache = False)
         task.specify_output_file(hours_sun, "insol/daily/hours_sun_day_%d.tif" % day, cache = False)
+        task.specify_output_file(slope, "slope.tif", cache = False)
+        task.specify_output_file(aspect,"aspect.tif",cache = False)
     ##--Submit
         wq.submit(task)
         tasks=tasks+1

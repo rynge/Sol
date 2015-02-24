@@ -129,10 +129,14 @@ def load_annual_tasks(wq,proj_dir):
     return wq,tasks
 def main():
 ##--Set up Arguments
+##--Run options
+##----Linked from r.sun.dist
+##----Given directory to operate on
+##----Given a list of files
     parser = argparse.ArgumentParser()
     parser.add_argument('--with-workqueue',dest="workqueue")
     parser.add_argument('--frequency','-f',dest="freq")
-    parser.add_argument('--name','-f',dest="name")
+    parser.add_argument('--name','-n',dest="name")
     parser.add_argument('--directory','-d',dest="dir")
     parser.add_argument('args',nargs=1)
     args = parser.parse_args()
@@ -143,7 +147,12 @@ def main():
     port = 9101
     name = args.name
     projDir = args.dir
+
+
 ##--Argument Validation
+##--Frequency
+    if freq != "MONTHLY" and freq != "ANNUAL" and freq != "GIVEN":
+        error("Frequency must be \"MONTHLY\" or \"ANNUAL\"")
 ##--Name
     if not name:
         name = "r.series.dist"
@@ -152,9 +161,6 @@ def main():
         projDir = os.path.join("./",os.path.basename(dem)[:-4])
     if not os.path.exists(os.path.join(projDir,"global")):
         error("We cannot find the results of r.sun.distributed")
-##--Frequency
-    if freq != "MONTHLY" and freq != "ANNUAL":
-        error("Frequency must be \"MONTHLY\" or \"ANNUAL\"")
 ##--Workqueue
     if not workqueue:
         try:
@@ -164,6 +170,9 @@ def main():
             cctools_debug_config_file("wq.debug")
         except:
             error("WorkQueue not created")
+##--END ARGUMENT VALIDATION
+
+
 ##--Call correct series task
     if freq == "MONTHLY":
         workqueue, tasks = load_monthly_tasks(workqueue,projDir)        
