@@ -10,8 +10,10 @@ def warning(*objs):
 import argparse, getpass
 import sys, os, datetime
 import imp
-imp.load_source('r.sun.distributed',".")
-import rsun, rseries
+
+#Load r.sun/r.series scipts
+rsun = imp.load_source("rsun","./r.sun.distributed")
+rseries =imp.load_source("rseries","./r.series.distributed")
 
 try:
     imp.find_module('work_queue')
@@ -107,6 +109,12 @@ def main():
 ##--Creete project directory structure
     create_project_directories(proj_dir)
 
+##--EEMT--##
+
+##--Warp DEM
+##--Get DAYMET Data for given years
+##--Partition NA_DEM & DAYMET Files
+
 ##--Create Workqueue
     try:
         wq = WorkQueue(port)
@@ -117,10 +125,11 @@ def main():
     except:
         error("WorkQueue could not be instantiated")
 
+##--Load Tasks
     wq,tasks_sun = rsun.load_tasks(wq,proj_dir,range(1,366),dem)
     wq,tasks_monthly = rseries.load_monthly_tasks(wq,proj_dir)
     wq,tasks_annual = rseries.load_annual_tasks(wq,proj_dir)
-
+##--
     run_workqueue(wq,tasks_sun+tasks_monthly+tasks_annual)
 
 if __name__ == '__main__':
