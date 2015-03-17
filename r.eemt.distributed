@@ -1,0 +1,92 @@
+#!/usr/bin/env python
+from __future__ import print_function
+
+def error(*objs):
+    print("ERROR: ", *objs, file=sys.stderr)
+    exit(1)
+def warning(*objs):
+    print("WARNING: ", *objs, file=sys.stderr)
+
+import argparse, getpass
+import sys, os, datetime
+import imp
+
+try:
+    imp.find_module('work_queue')
+    found = True
+except ImportError:
+    error("Could not find work_queue module. \nAdd location to your PYTHONPATH")
+    exit(1)
+if found:
+    from work_queue import *
+script_location = os.path.abspath(os.path.dirname(sys.argv[0]))
+
+
+
+DAYMET_URL="http://thredds.daac.ornl.gov/thredds/fileServer/ornldaac/1219/tiles/"
+
+def create_project_directories(proj_dir):
+    if not os.path.exists(os.path.join(proj_dir,"r.sun")):
+        os.makedirs(os.path.join(proj_dir,"r.sun/global"))
+        os.makedirs(os.path.join(proj_dir,"r.sun/global/daily"))
+        os.makedirs(os.path.join(proj_dir,"r.sun/global/monthly"))
+        os.makedirs(os.path.join(proj_dir,"r.sun/global/annual"))
+        os.makedirs(os.path.join(proj_dir,"r.sun/insol"))
+        os.makedirs(os.path.join(proj_dir,"r.sun/insol/daily"))
+        os.makedirs(os.path.join(proj_dir,"r.sun/insol/monthly"))
+        os.makedirs(os.path.join(proj_dir,"r.sun/insol/annual"))
+    if not os.path.exists(os.path.join(proj_dir,"eemt")):
+        os.makedirs(os.path.join(proj_dir,"eemt"))
+    if not os.path.exists(os.path.join(proj_dir,"daymet")):
+        os.makedirs(os.path.join(proj_dir,"daymet"))
+        os.makedirs(os.path.join(proj_dir,"daymet/tmin"))
+        os.makedirs(os.path.join(proj_dir,"daymet/tmax"))
+        os.makedirs(os.path.join(proj_dir,"daymet/swe"))
+        os.makedirs(os.path.join(proj_dir,"daymet/prcp"))
+        os.makedirs(os.path.join(proj_dir,"daymet/vp"))
+        os.makedirs(os.path.join(proj_dir,"daymet/dayl"))
+        os.makedirs(os.path.join(proj_dir,"daymet/srad"))
+def main():
+##--Argument Parser
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--start-year', '-s', type=int, dest="start")
+    parser.add_argument('--end-year', '-e', type=int, dest="end")
+    parser.add_argument('--name','-n',dest="name")
+    parser.add_argument('-O',dest="output")
+    parser.add_argument('args',nargs=1)
+    args=parser.parse_args()
+
+    dem = args.args[0]
+    start_year= args.start
+    end_year  = args.end
+    name      = args.name
+    proj_dir  = args.output
+    port      = 9123 
+
+##--Argument Validation
+##--If start=null, start at beginning of time
+    if not start_year:
+        start_year = 1980
+##--If end=null, finish at end of time
+    if not end_year:
+        end_year = datetime.date.today().year - 2
+##--End must be > Start
+    if end_year < start_year:
+        error("End year must occur after start year!")
+##--Default WQ name
+    if not name:
+        name=getpass.getuser() + "_EEMT"
+##--Verify DEM Exists
+    if not os.path.isfile(dem):
+        error("DEM not found!")
+##--Input DEM Must be *.tif
+    if dem[-4:] != ".tif":
+        error("DEM must be a .tif file.")
+##--If output null, output to current directory
+    if not proj_dir:
+        proj_dir="./"+"eemt_"+dem[:-4]
+
+    create_project_directories(proj_dir)
+
+if __name__ == '__main__':
+    main()
