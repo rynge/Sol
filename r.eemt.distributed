@@ -10,6 +10,8 @@ def warning(*objs):
 import argparse, getpass
 import sys, os, datetime
 import imp
+imp.load_source('r.sun.distributed',".")
+import rsun, rseries
 
 try:
     imp.find_module('work_queue')
@@ -24,7 +26,24 @@ script_location = os.path.abspath(os.path.dirname(sys.argv[0]))
 
 
 DAYMET_URL="http://thredds.daac.ornl.gov/thredds/fileServer/ornldaac/1219/tiles/"
-
+def run_workqueue(wq, tasks):
+    errors=0
+    completed=0
+    while not wq.empty():
+        t = wq.wait(5)
+        if t:
+            if t.return_status != 0:
+                warning("Task %d did not return successfully" % t.id)
+                print(t.output)
+                print(t.output,file=wq.errors)
+                errors = errors + 1
+            else:
+                print("Task %d of %d completed" (completed+1,tasks))
+                completed = completed + 1
+    if errors == 0:
+        print("All tasks completed successfully!")
+    else:
+        print("%d of %d tasks completed. See outputs for errors" % (completed, tasks))
 def create_project_directories(proj_dir):
     if not os.path.exists(os.path.join(proj_dir,"r.sun")):
         os.makedirs(os.path.join(proj_dir,"r.sun/global"))
@@ -85,8 +104,24 @@ def main():
 ##--If output null, output to current directory
     if not proj_dir:
         proj_dir="./"+"eemt_"+dem[:-4]
-
+##--Creete project directory structure
     create_project_directories(proj_dir)
+
+##--Create Workqueue
+    try:
+        wq = WorkQueue(port)
+        wq.specify_name(name)
+        cctools_debug_flags_set("all")
+        cctools_debug_config_file("wq.debug")
+        print("Workqueue started with name " + name + " on port 9123")
+    except:
+        error("WorkQueue could not be instantiated")
+
+    wq,tasks_sun = rsun.load_tasks(wq,proj_dir,range(1,366),dem)
+    wq,tasks_monthly = rseries.load_monthly_tasks(wq,proj_dir)
+    wq,tasks_annual = rseries.load_annual_tasks(wq,proj_dir)
+
+    run_workqueue(wq,tasks_sun+tasks_monthly+tasks_annual)
 
 if __name__ == '__main__':
     main()
