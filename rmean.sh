@@ -112,6 +112,9 @@ rm temp
 
 g.region -s rast=$NAME
 
+#compute Sum
+r.series -n input="`g.mlist pattern='total_sun_day_*' sep=,`" output=total_sun_${MONTH}_sum method=sum
+r.series -n input="`g.mlist pattern='hours_sun_day_*' sep=,`" output=hours_sun_${MONTH}_sum method=sum
 #Compute average 
 r.series -n input="`g.mlist pattern='total_sun_day_*' sep=,`" output=total_sun_${MONTH}_average method=average
 r.series -n input="`g.mlist pattern='hours_sun_day_*' sep=,`" output=hours_sun_${MONTH}_average method=average
@@ -125,6 +128,10 @@ r.series -n input="`g.mlist pattern='hours_sun_day_*' sep=,`" output=hours_sun_$
 r.series -n input="`g.mlist pattern='total_sun_day_*' sep=,`" output=total_sun_${MONTH}_variance method=variance
 r.series -n input="`g.mlist pattern='hours_sun_day_*' sep=,`" output=hours_sun_${MONTH}_variance method=variance
 
+
+#Sum Maps
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun_${MONTH}_sum output=global/monthly/total_sun_${MONTH}_sum.tif
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=hours_sun_${MONTH}_sum output=insol/monthly/hours_sun_${MONTH}_sum.tif
 #Average Maps
 r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun_${MONTH}_average output=global/monthly/total_sun_${MONTH}_average.tif
 r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=hours_sun_${MONTH}_average output=insol/monthly/hours_sun_${MONTH}_average.tif
