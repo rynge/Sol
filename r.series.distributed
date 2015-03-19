@@ -80,7 +80,7 @@ def load_monthly_tasks(wq,proj_dir):
             insol_inputs  = insol_inputs  + " ./insol/daily/hours_sun_day_%d.tif" % day
         command = command + global_inputs + " " + insol_inputs
 
-        print(command)
+#        print(command)
 
     ##--Create Task
         task = Task(command)
