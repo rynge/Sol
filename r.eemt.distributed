@@ -10,6 +10,7 @@ def warning(*objs):
 import argparse, getpass
 import sys, os, datetime
 import imp
+from Tiff import Tiff
 
 #Load r.sun/r.series scipts
 rsun = imp.load_source("rsun","./r.sun.distributed")
@@ -29,22 +30,33 @@ script_location = os.path.abspath(os.path.dirname(sys.argv[0]))
 
 DAYMET_URL="http://thredds.daac.ornl.gov/thredds/fileServer/ornldaac/1219/tiles/"
 def run_workqueue(wq, tasks):
+    start=datetime.datetime.now()
+    print("Started at: ",start.strftime("%d%b %H:%M"))
     errors=0
     completed=0
     while not wq.empty():
         t = wq.wait(5)
         if t:
+            current=datetime.datetime.now()
             if t.return_status != 0:
                 warning("Task %d did not return successfully" % t.id)
+                if t.total_submissions <= 5:
+                    print("\tResubmitting task &d for the %d of 5 retries" % (t.id,t.total_submissions))
+                else:
+                    print("Task failed too many times. Skipping")
                 print(t.result)
                 errors = errors + 1
             else:
                 print("Task %d of %d completed" % (completed+1,tasks))
                 completed = completed + 1
+            print("\tElapsed Time: ", current-start)
     if errors == 0:
         print("All tasks completed successfully!")
     else:
         print("%d of %d tasks completed. See outputs for errors" % (completed, tasks))
+    finish=datetime.datetime.now()    
+    print("Finished at: ",finish.strftime("%d%b %H:%M"))
+    print("Elapsed Time: ", finish-start)
 def create_project_directories(proj_dir):
     if not os.path.exists(os.path.join(proj_dir,"r.sun")):
         os.makedirs(os.path.join(proj_dir,"r.sun/global"))
@@ -111,9 +123,14 @@ def main():
 ##--EEMT--##
 
 ##--Warp DEM
+    print(dem)
+    dem_tiff=Tiff("",dem)
+
 ##--Get DAYMET Data for given years
 ##--Partition NA_DEM & DAYMET Files
 
+
+    exit(0)
 ##--Create Workqueue
     try:
         wq = WorkQueue(port)
@@ -125,12 +142,10 @@ def main():
         error("WorkQueue could not be instantiated")
 
 ##--Load Tasks
-    wq,tasks_sun = rsun.load_tasks(wq,proj_dir,[1,2,3,4,5],dem)
-#    wq,tasks_monthly = rseries.load_monthly_tasks(wq,proj_dir)
-    tasks_monthly=0
-    tasks_annual=0
-#    wq,tasks_annual = rseries.load_annual_tasks(wq,proj_dir)
-##--
+    wq,tasks_sun = rsun.load_tasks(wq,proj_dir,range(1,366),dem)
+    wq,tasks_monthly = rseries.load_monthly_tasks(wq,proj_dir)
+    wq,tasks_annual = rseries.load_annual_tasks(wq,proj_dir)
+##--Spin up workqueue 
     run_workqueue(wq,tasks_sun+tasks_monthly+tasks_annual)
 
 if __name__ == '__main__':
