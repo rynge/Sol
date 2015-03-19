@@ -133,7 +133,7 @@ r.mapcalc "EEMT_Trad = E_ppt_trad + E_bio_trad"
 #EEMT-Topographical
 r.mapcalc "F = a_i*prcp"
 r.mapcalc "DT = ((tmax_topo+tmin_topo)/2) - 273.15"
-r.mapcalc "N = sin(slope)*cos(aspect*0.0174532925)"
+r.mapcalc "N = cos(slope*0.0174532925)*sin(aspect*0.0174532925)"
 r.mapcalc "NPP_topo = 0.39*dem_10m+346*N-187"
 r.mapcalc "E_bio_topo = NPP_topo*(22*10^6)"
 r.mapcalc "E_ppt_topo =F*4185.5*DT*E_bio_topo"
