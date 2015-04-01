@@ -20,7 +20,8 @@ from Tiff import Tiff
 #Load r.sun/r.series scipts
 rsun = imp.load_source("rsun","./r.sun.distributed")
 rseries = imp.load_source("rseries","./r.series.distributed")
-tiffparser = imp.load_source("tiffparser","./tiffparser.py")
+#tiffparser = imp.load_source("tiffparser","./tiffparser.py")
+tiffparser = imp.load_source("tiffparser","./parser.py")
 
 try:
     imp.find_module('work_queue')
@@ -183,17 +184,22 @@ def main():
 ######--EEMT--#####
 
 ##--Warp DEM
-    dem_tiff=Tiff("",dem,proj_dir)
-    warped=dem_tiff.warp("DAYMET")
-    print(warped)
+#    dem_tiff=Tiff("",dem,proj_dir)
+#    warped=dem_tiff.warp("DAYMET")
+#    print(warped)
 ##--Partition NA_DEM & DAYMET Files
     test=tiffparser.TiffParser()
     test.loadTiff(dem)
-    
+    test.read_meta(dem)
+    test_coords = test.getProjCoords()
+    print(test_coords)
+    warped_path = test.convert_opentopo(proj_dir,dem)
 
-    print(test.getName())
-    print(test.getDecimalCoords())
-    print(test.getProjCoords())
+    warped_tif = tiffparser.TiffParser()
+    warped_tif.loadTiff(warped_path)
+    warped_coords = warped_tif.getProjCoords()
+    print(warped_coords)
+
 ##--Get DAYMET Data for given years
         
 
