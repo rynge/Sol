@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
+
+MONTHS=["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"]
+
+
+
 def error(*objs):
     print("ERROR: ", *objs, file=sys.stderr)
     exit(1)
@@ -14,7 +19,8 @@ from Tiff import Tiff
 
 #Load r.sun/r.series scipts
 rsun = imp.load_source("rsun","./r.sun.distributed")
-rseries =imp.load_source("rseries","./r.series.distributed")
+rseries = imp.load_source("rseries","./r.series.distributed")
+tiffparser = imp.load_source("tiffparser","./tiffparser.py")
 
 try:
     imp.find_module('work_queue')
@@ -24,7 +30,10 @@ except ImportError:
     exit(1)
 if found:
     from work_queue import *
+
+
 script_location = os.path.abspath(os.path.dirname(sys.argv[0]))
+na_dem_location = script_location + "/DAYMET/NA_DEM/na_dem.tif"
 
 
 
@@ -57,6 +66,46 @@ def run_workqueue(wq, tasks):
     finish=datetime.datetime.now()    
     print("Finished at: ",finish.strftime("%d%b %H:%M"))
     print("Elapsed Time: ", finish-start)
+def load_eemt_tasks(wq,proj_dir,syear,eyear,dem):
+    tasks = 0
+    reemt = os.path.join(script_location,"reemt.sh")
+    for year in range(syear,eyear+1):
+        for month in MONTHS:
+            eemt = proj_dir+"/eemt/yearly/%d_%s" % (month,year)
+            total_sun = proj_dir+"/global/monthly/total_sun_%s.tif" % month
+            hours_sun = proj_dir+"/insol/monthly/hours_sun_%s.tif" % month
+            flat_sun = proj_dir+"flat.tif"
+            slope = proj_dir+"/slope.tif"
+            aspect=proj_dir+"/aspect.tif"
+            tmin = proj_dir+"/daymet/tmin/tmin_%d_%s.tif" % (year,month)
+            tmax = proj_dir+"/daymet/tmax/tmax_%d_%s.tif" % (year,month)
+            twi = proj_dir+"/daymet/twi/twi_%d_%s.tif" % (year,month)
+            prcp = proj_dir+"/daymet/prcp/prcp_%d_%s.tif" % (year,month)
+            vp = proj_dir+"/daymet/vp/vp_%d_%s.tif" % (year,month)
+            na_dem = proj_dir+"/daymet/NA_DEM.tif"
+            command = "./reemt.sh" + " " + proj_dir + month + " " + `year` + " " + dem + " " + na_dem + " " + tmin + " " + tmax + " " + vp + " " + twi + " " + total_sun + " " + flat_sun + " " + slope + " " + aspect
+
+            task = Task(command)
+            task.specify_input_file(reemt,"reemt.sh", WORK_QUEUE_INPUT, cache=True)
+            task.specify_input_file(dem,dem ,WORK_QUEUE_INPUT,cache=True)
+            task.specify_input_file(total_sun,total_sun,WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(hours_sun,hours_sun,WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(flat_sun,flat_sun,WORK_QUEUE_INPUT,cache=True)
+            task.specify_input_file(slope,slope,WORK_QUEUE_INPUT,cache=True)
+            task.specify_input_file(aspect,aspect,WORK_QUEUE_INPUT,cache=True)
+            task.specify_input_file(tmin,tmin,WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(tmax,tmax,WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(twi,twi,WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(prcp,prcp,WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(vp,vp,WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(na_dem,na_dem,WORK_QUEUE_INPUT,cache=True)
+
+            task.specify_output_file(eemt, eemt, cache=False)
+
+            #wq.submit(task)
+            tasks=tasks+1
+
+
 def create_project_directories(proj_dir):
     if not os.path.exists(os.path.join(proj_dir,"r.sun")):
         os.makedirs(os.path.join(proj_dir,"r.sun/global"))
@@ -69,6 +118,14 @@ def create_project_directories(proj_dir):
         os.makedirs(os.path.join(proj_dir,"r.sun/insol/annual"))
     if not os.path.exists(os.path.join(proj_dir,"eemt")):
         os.makedirs(os.path.join(proj_dir,"eemt"))
+        os.makedirs(os.path.join(proj_dir,"eemt/summary"))
+        for month in MONTHS:
+            os.makedirs(os.path.join(proj_dir,"eemt/summary",month))
+        os.makedirs(os.path.join(proj_dir,"eemt/yearly"))
+        for year in range(1980,2014):
+            os.makedirs(os.path.join(proj_dir,"eemt/yearly/%d" % year))
+            for month in MONTHS:
+                os.makedirs(os.path.join(proj_dir,"eemt/yearly/%d" % year, month))
     if not os.path.exists(os.path.join(proj_dir,"daymet")):
         os.makedirs(os.path.join(proj_dir,"daymet"))
         os.makedirs(os.path.join(proj_dir,"daymet/tmin"))
@@ -78,6 +135,9 @@ def create_project_directories(proj_dir):
         os.makedirs(os.path.join(proj_dir,"daymet/vp"))
         os.makedirs(os.path.join(proj_dir,"daymet/dayl"))
         os.makedirs(os.path.join(proj_dir,"daymet/srad"))
+def getCorners(dem):
+    
+    return ulx,uly,lrx,lry
 def main():
 ##--Argument Parser
     parser = argparse.ArgumentParser()
@@ -120,15 +180,22 @@ def main():
 ##--Creete project directory structure
     create_project_directories(proj_dir)
 
-##--EEMT--##
+######--EEMT--#####
 
 ##--Warp DEM
-    print(dem)
-    dem_tiff=Tiff("",dem)
-
-##--Get DAYMET Data for given years
+    dem_tiff=Tiff("",dem,proj_dir)
+    warped=dem_tiff.warp("DAYMET")
+    print(warped)
 ##--Partition NA_DEM & DAYMET Files
+    test=tiffparser.TiffParser()
+    test.loadTiff(dem)
+    
 
+    print(test.getName())
+    print(test.getDecimalCoords())
+    print(test.getProjCoords())
+##--Get DAYMET Data for given years
+        
 
     exit(0)
 ##--Create Workqueue
@@ -145,8 +212,9 @@ def main():
     wq,tasks_sun = rsun.load_tasks(wq,proj_dir,range(1,366),dem)
     wq,tasks_monthly = rseries.load_monthly_tasks(wq,proj_dir)
     wq,tasks_annual = rseries.load_annual_tasks(wq,proj_dir)
+    wq,tasks_eemt = load_eemt_tasks(wq,proj_dir,start_year,end_year)
 ##--Spin up workqueue 
-    run_workqueue(wq,tasks_sun+tasks_monthly+tasks_annual)
+    run_workqueue(wq,tasks_sun+tasks_monthly+tasks_annual+tasks_eemt)
 
 if __name__ == '__main__':
     main()

@@ -11,7 +11,8 @@ class Tiff:
     stTile=12625
 ##--PRISM Default Data
     PRISM_proj=""
-    def __init__(self, path,filename):
+    def __init__(self, path,filename, outputdir):
+        self.projdir=outputdir
         self.filename=filename
         self.location=path
         self.filepath=os.path.join(self.location,self.filename)
@@ -101,11 +102,15 @@ class Tiff:
             print stderr
             sys.exit("Could not open " + self.filename)
         stdout = stdout.split('\n')
+        self.region=""
         for line in stdout:
             if line.startswith('    AUTHORITY'):
                 line=line.translate(None, '[]"/')
                 line = line.split(',')
                 self.region=line[1]
+        if not self.region:
+            print "ERROR: Could not calculate region of Tif"
+            quit(1)
     def mergeTiff(self,other,path,output):
         for tif in other:
             if not os.path.isfile(tif.filepath):
@@ -124,7 +129,7 @@ class Tiff:
                 print stderr
             else:
                 print "Finished merging " + output
-            new_tiff=Tiff(path,output)
+            new_tiff=Tiff(path,output,"")
             return new_tiff
         else:
             print "File " + output + " already exists. Exiting"      
@@ -139,13 +144,14 @@ class Tiff:
             raise RuntimeError("Invalid projection type")
         command = ['gdalwarp', '-s_srs', 'EPSG:' + self.region, '-overwrite', '-t_srs',t_proj, '-r', 'bilinear', '-of', 'GTiff', '-tr', '10', '-10']
         output_file=self.filename[:-4]+"_converted.tif"
-        output_file=os.path.join(self.location,output_file)
+        output_file=os.path.join(self.projdir,output_file)
         command.append(self.filename)
         command.append(output_file)
         process = Popen(command,stdout=PIPE,shell=False)
         stderr=process.communicate()
         if process.returncode != 0:
             sys.exit(stderr)
+        return output_file
 def createMultiBandTiff():
     print "CreateMultiBandTiff"
     return
