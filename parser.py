@@ -56,6 +56,7 @@ class TiffParser(object):
 			
 	# Process gdalinfo output by lines
 	output = output.split('\n')
+        lx = uly = rx = lry = 0
 	for i in xrange(len(output) - 1, -1, -1):
 		if output[i].startswith("Size is"):
 			# Extract # of pixels along X,Y axis
@@ -149,7 +150,7 @@ class TiffParser(object):
 	North and West hemispheres.
 	"""
 	# Command string to convert the DEM files from Open Topography to DAYMET's projection
-	command = ['gdalwarp', '-s_srs', 'EPSG:' + self.proj_info['region'], '-overwrite', '-t_srs',"+proj=lcc +lat_1=25 +lat_2=60 +lat_0=42.5 +lon_0=-100 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs",'-r', 'bilinear', '-of', 'GTiff', '-tr', '10', '-10']
+	command = ['gdalwarp', '-s_srs', 'EPSG:' + self.proj_info['region'], '-overwrite', '-t_srs',"+proj=lcc +lat_1=25 +lat_2=60 +lat_0=42.5 +lon_0=-100 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs",'-r', 'cubic', '-of', 'GTiff', '-tr', '10', '-10']
 
         dem_file=tiff
         dem_output=proj_dir + "/" + self.getName() + "_converted.tif"
