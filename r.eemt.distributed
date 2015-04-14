@@ -3,7 +3,8 @@ from __future__ import print_function
 
 
 MONTHS=["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"]
-
+PARAMS=["tmin","tmax","vp","prcp"]
+IPLANT_ROOT="/iplant/home/tyson_swetnam/DAYMET/"
 
 
 def error(*objs):
@@ -12,8 +13,10 @@ def error(*objs):
 def warning(*objs):
     print("WARNING: ", *objs, file=sys.stderr)
 
+from subprocess import Popen, PIPE, check_output
 import argparse, getpass
 import sys, os, datetime
+import urllib
 import imp
 from Tiff import Tiff
 
@@ -136,9 +139,55 @@ def create_project_directories(proj_dir):
         os.makedirs(os.path.join(proj_dir,"daymet/vp"))
         os.makedirs(os.path.join(proj_dir,"daymet/dayl"))
         os.makedirs(os.path.join(proj_dir,"daymet/srad"))
-def getCorners(dem):
-    
-    return ulx,uly,lrx,lry
+        os.makedirs(os.path.join(proj_dir,"daymet/twi"))
+def createTWI(warped_tif,proj_dir):
+    warped_dem = os.path.join(warped_tif.getName()+".tif")
+    dem_grid = os.path.join(warped_dem[:-4])
+    slope_grid = os.path.join(proj_dir,"slope_grid")
+    aspect_grid = os.path.join(proj_dir,"aspect_grid")
+    catchment_grid = os.path.join(proj_dir,"catchment_grid")
+    twi_grid = os.path.join(proj_dir,"twi_grid")
+    print(dem_grid)
+##--Import DEM
+    import_dem="saga_cmd io_gdal 0 -FILES " + warped_dem + " -GRIDS " + dem_grid
+    print(import_dem)
+    process=Popen(import_dem,shell=True)
+    process.communicate()
+
+##--Run Slope, Aspect, Curvature
+    sac="saga_cmd ta_morphometry 0 -ELEVATION " + dem_grid+".sgrd -SLOPE " +slope_grid + " -ASPECT " + aspect_grid
+    print(sac)
+    process=Popen(sac,shell=True)
+    process.communicate()
+
+##--Run Catchment Area
+    catcha = "saga_cmd ta_hydrology 1 -ELEVATION " + dem_grid + ".sgrd -CAREA " + catchment_grid
+    print(catcha)
+    process=Popen(catcha,shell=True)
+    process.communicate()
+##--Run Topographical Wetness Index
+    twi="saga_cmd ta_hydrology 20 -SLOPE " + slope_grid + ".sgrd -AREA " + catchment_grid + ".sgrd -TWI " + twi_grid
+    print(twi)
+    process=Popen(twi,shell=True)
+    process.communicate()
+##--Export Files as GeoTiffs
+    export_slope = "saga_cmd io_gdal 2 -GRIDS " + slope_grid + ".sgrd -FILE " + os.path.join(proj_dir,"slope.tif")
+    export_aspect = "saga_cmd io_gdal 2 -GRIDS " + aspect_grid + ".sgrd -FILE " + os.path.join(proj_dir,"aspect.tif")
+    export_catchment = "saga_cmd io_gdal 2 -GRIDS " + catchment_grid + ".sgrd -FILE " + os.path.join(proj_dir,"catchment.tif")
+    export_twi = "saga_cmd io_gdal 2 -GRIDS " + twi_grid + ".sgrd -FILE " + os.path.join(proj_dir,"twi.tif")
+
+    process=Popen(export_slope,shell=True)
+    process.communicate()
+    process=Popen(export_aspect,shell=True)
+    process.communicate()
+    process=Popen(export_catchment,shell=True)
+    process.communicate()
+    process=Popen(export_twi,shell=True)
+    process.communicate()
+##--Remove unneeded SAGA files
+    remove_files = "rm " + os.path.join(proj_dir,"*.mgrd") + " " + os.path.join(proj_dir,"*.prj") + " " + os.path.join(proj_dir,"*.sdat") + " " + os.path.join(proj_dir,"*.sgrd")
+    process = Popen(remove_files,shell=True)
+    process.communicate()
 def main():
 ##--Argument Parser
     parser = argparse.ArgumentParser()
@@ -180,30 +229,6 @@ def main():
         proj_dir="./"+"eemt_"+dem[:-4]
 ##--Creete project directory structure
     create_project_directories(proj_dir)
-
-######--EEMT--#####
-
-##--Warp DEM
-#    dem_tiff=Tiff("",dem,proj_dir)
-#    warped=dem_tiff.warp("DAYMET")
-#    print(warped)
-##--Partition NA_DEM & DAYMET Files
-    test=tiffparser.TiffParser()
-    test.loadTiff(dem)
-    test.read_meta(dem)
-    test_coords = test.getProjCoords()
-    print(test_coords)
-    warped_path = test.convert_opentopo(proj_dir,dem)
-
-    warped_tif = tiffparser.TiffParser()
-    warped_tif.loadTiff(warped_path)
-    warped_coords = warped_tif.getProjCoords()
-    print(warped_coords)
-
-##--Get DAYMET Data for given years
-        
-
-    exit(0)
 ##--Create Workqueue
     try:
         wq = WorkQueue(port)
@@ -213,6 +238,57 @@ def main():
         print("Workqueue started with name " + name + " on port 9123")
     except:
         error("WorkQueue could not be instantiated")
+
+######--EEMT--#####
+
+##--Warp DEM
+    test=tiffparser.TiffParser()
+    test.loadTiff(dem)
+    test.read_meta(dem)
+    test_coords = test.getProjCoords()
+    warped_path = test.convert_opentopo(proj_dir,dem)
+    warped_tif = tiffparser.TiffParser()
+    warped_tif.loadTiff(warped_path)
+    warped_coords = warped_tif.getProjCoords()
+    lrx = float(warped_coords[0][0].split(',')[0])
+    lry = float(warped_coords[0][0].split(',')[1])
+    ulx = float(warped_coords[0][1].split(',')[0])
+    uly = float(warped_coords[0][1].split(',')[1])
+##--Start IRODS
+    command=['iinit']
+    process=Popen(command,stderr=PIPE,shell=True)
+    stdout,stderr=process.communicate()
+    if stderr != '':
+        print("There was an error starting iCommands. Please review the error messages then try again\n\n\n")
+        print(stderr)
+        sys.exit(1)
+##--Get DAYMET Data for given years
+    print("Downloading national DAYMET data")
+    for year in range(start_year,end_year+1):
+        for param in PARAMS:
+            for month in MONTHS:
+                command = ['iget','-f']
+                filepath=os.path.join(IPLANT_ROOT,param+"_allyrs",param+"_"+str(year)+"_"+month+".tif")
+                daymet_output=os.path.join(proj_dir,"daymet",param)
+                command.append(filepath)
+                command.append(daymet_output)
+                print("Downloading " + param + " for " + month+str(year))
+                process=Popen(command,shell=False)
+                stdout,stderr=process.communicate()
+    print("All national DAYMET data downloaded")
+    print("Partitioning national data to local region")
+    for param in PARAMS:
+        file_dir = os.path.join(proj_dir,"daymet",param)
+        file_list = os.listdir(file_dir)
+        for filename in file_list:
+            inputfile =os.path.join(file_dir,filename)
+            outputfile=os.path.join(file_dir,filename[:-4]+"_local.tif")
+            command = "gdal_translate -projwin " + str(ulx)+" "+str(uly)+" "+str(lrx)+" "+str(lry)+ " -of GTiff "+inputfile+" " +outputfile 
+            process=Popen(command,shell=True)
+            stdout,stderr=process.communicate()
+            command = "rm " + inputfile
+    createTWI(warped_tif,proj_dir)
+    exit(0)
 
 ##--Load Tasks
     wq,tasks_sun = rsun.load_tasks(wq,proj_dir,range(1,366),dem)
