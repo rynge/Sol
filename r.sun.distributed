@@ -56,6 +56,7 @@ def load_tasks(wq, proj_dir, days, dem):
         task.specify_output_file(slope, "slope.tif", cache = False)
         task.specify_output_file(aspect,"aspect.tif",cache = False)
     ##--Submit
+	print(command)
         wq.submit(task)
         tasks=tasks+1
     return wq, tasks
@@ -117,13 +118,19 @@ def main():
 
     workqueue,tasks = load_tasks(workqueue,proj_dir,days, dem)
     print("Waiting for tasks to return")
+    completed = 0
     while not workqueue.empty():
         t = workqueue.wait(5)
         if t:
             print("Task complete")
+	    print(t.output)
             if t.return_status != 0:
                 print("Task error!")
+		workqueue.submit(t)
                 print(t.output)
+	    else:
+#		print("Task %d of %d completed" % (completed+1,tasks))
+		completed=completed+1
     print("All tasks complete")
 
 if __name__ == '__main__':

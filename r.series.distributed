@@ -201,10 +201,6 @@ def main():
             error("Cannot find DEM")
         if not os.path.isdir(os.path.join(projDir,os.path.basename(dem)[:-4],"global")):
             error("Could not find global results in %s" % os.path.join(projDir,os.path.basename(dem)[:-4],"global"))
-        if freq == "MONTHLY":
-            workqueue, tasks = load_monthly_tasks(workqueue,projDir)
-        elif freq == "ANNUAL":
-            workqueue, tasks = load_annual_tasks(workqueue,projDir)
         projDir = os.path.join(projDir,os.path.basename(dem)[:-4])
 ##--Directory
     elif sub == 'directory':
@@ -244,21 +240,21 @@ def main():
         print("run file func")
         workqueue, tasks = load_file_tasks(workqueue,files)
 
-
-    exit(0)
-
 ##--Run Workqueue
     errors=0
     completed=0
     while not workqueue.empty():
         t = workqueue.wait(5)
         if t:
-            if t.return_status != 0:
-                warning("Task %d did not return successfully!" % t.id)
-                print(t.output)
-                errors = errors + 1
+	    print(t.output)	  
+            if(t.return_status != 0):
+	        if(t.output != None):
+                    warning("Task %d did not return successfully!" % t.id)
+                    errors = errors + 1
+	        workqueue.submit(t)
             else:
                 print("Task %d of %d completed" % (completed+1,tasks))
+		print(t.output)
                 completed = completed + 1
     if errors == 0:
         print("All tasks completed successfully!")

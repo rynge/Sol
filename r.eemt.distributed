@@ -12,7 +12,14 @@ def error(*objs):
     exit(1)
 def warning(*objs):
     print("WARNING: ", *objs, file=sys.stderr)
-
+def log(*objs):
+    log_file = open("task_output.log","a")
+    print(*objs,file=log_file)
+    log_file.close()
+def error_log(proj_dir,*objs):
+    error_file = open(os.path.join(proj_dir,"sys.err"),"a")
+    print(*objs,file=error_file)
+    error_file.close()
 from subprocess import Popen, PIPE, check_output
 import argparse, getpass
 import sys, os, datetime
@@ -42,7 +49,7 @@ na_dem_location = script_location + "/DAYMET/NA_DEM/na_dem.tif"
 
 
 DAYMET_URL="http://thredds.daac.ornl.gov/thredds/fileServer/ornldaac/1219/tiles/"
-def run_workqueue(wq, tasks):
+def run_workqueue(wq, tasks,proj_dir):
     start=datetime.datetime.now()
     print("Started at: ",start.strftime("%d%b %H:%M"))
     errors=0
@@ -50,14 +57,15 @@ def run_workqueue(wq, tasks):
     while not wq.empty():
         t = wq.wait(5)
         if t:
+	    log(t.output)
             current=datetime.datetime.now()
             if t.return_status != 0:
                 warning("Task %d did not return successfully" % t.id)
-                if t.total_submissions <= 5:
-                    print("\tResubmitting task &d for the %d of 5 retries" % (t.id,t.total_submissions))
-                else:
-                    print("Task failed too many times. Skipping")
-                print(t.result)
+		if(t.total_submissions <= 10):
+			print("\tResubmitting task %d for the %d time." % (t.id,t.total_submissions))
+			log(t.output)
+			print(t.output)
+			wq.submit(t)
                 errors = errors + 1
             else:
                 print("Task %d of %d completed" % (completed+1,tasks))
@@ -75,7 +83,7 @@ def load_eemt_tasks(wq,proj_dir,syear,eyear,dem):
     reemt = os.path.join(script_location,"reemt.sh")
     for year in range(syear,eyear+1):
         for month in MONTHS:
-            eemt = proj_dir+"/eemt/yearly/%d_%s" % (month,year)
+            eemt = proj_dir+"/eemt/yearly/%s_%d" % (month,year)
             total_sun = proj_dir+"/global/monthly/total_sun_%s.tif" % month
             hours_sun = proj_dir+"/insol/monthly/hours_sun_%s.tif" % month
             flat_sun = proj_dir+"flat.tif"
@@ -106,9 +114,9 @@ def load_eemt_tasks(wq,proj_dir,syear,eyear,dem):
 
             task.specify_output_file(eemt, eemt, cache=False)
 
-            #wq.submit(task)
+            wq.submit(task)
             tasks=tasks+1
-
+    return wq,tasks
 
 def create_project_directories(proj_dir):
     if not os.path.exists(os.path.join(proj_dir,"r.sun")):
@@ -227,6 +235,10 @@ def main():
 ##--If output null, output to current directory
     if not proj_dir:
         proj_dir="./"+"eemt_"+dem[:-4]
+
+    start=datetime.datetime.now()
+    print("Started at: ",start.strftime("%d%b %H:%M"))
+
 ##--Creete project directory structure
     create_project_directories(proj_dir)
 ##--Create Workqueue
@@ -288,15 +300,18 @@ def main():
             stdout,stderr=process.communicate()
             command = "rm " + inputfile
     createTWI(warped_tif,proj_dir)
-    exit(0)
 
-##--Load Tasks
+##--Load RSun Tasks
     wq,tasks_sun = rsun.load_tasks(wq,proj_dir,range(1,366),dem)
+    run_workqueue(wq,tasks_sun,proj_dir)
+##--Load RSeries Tasks
     wq,tasks_monthly = rseries.load_monthly_tasks(wq,proj_dir)
+    run_workqueue(wq,tasks_monthly,proj_dir)
     wq,tasks_annual = rseries.load_annual_tasks(wq,proj_dir)
-    wq,tasks_eemt = load_eemt_tasks(wq,proj_dir,start_year,end_year)
+    run_workqueue(wq,tasks_annual,proj_dir)
+    wq,tasks_eemt = load_eemt_tasks(wq,proj_dir,start_year,end_year,warped_tif.getName()+".tif")
 ##--Spin up workqueue 
-    run_workqueue(wq,tasks_sun+tasks_monthly+tasks_annual+tasks_eemt)
+    run_workqueue(wq,tasks_eemt,proj_dir)
 
 if __name__ == '__main__':
     main()

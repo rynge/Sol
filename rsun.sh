@@ -86,6 +86,7 @@ INTERVAL=1
 ###############################################################################
 #SETUP COMPLETE => START GRASS OPERATIONS
 ###############################################################################
+echo "Running r.sun for day $DAY"
 #Create new projection info
 g.proj -c georef=$DEM
 #Import Dem

@@ -92,7 +92,7 @@ echo "GRASS_GUI: text" >> $GRASSRC
 ###############################################################################
 #SETUP COMPLETE => START GRASS OPERATIONS
 ###############################################################################
-
+echo "Computing Series for $MONTH"
 #Create new projection info
 g.proj -c georef=$1
 
