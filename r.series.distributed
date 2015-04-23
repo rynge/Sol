@@ -121,7 +121,7 @@ def load_annual_tasks(wq,proj_dir):
         global_inputs = global_inputs + " ./global/daily/total_sun_day_%d.tif" % day
         insol_inputs  = insol_inputs  + " ./insol/daily/hours_sun_day_%d.tif" % day
     command = command + global_inputs + " " + insol_inputs
-
+    print(command)
 ##Create Task
     task = Task(command)
 ##--Input Files
@@ -199,9 +199,9 @@ def main():
             error("DEM must end in .tif")
         if not os.path.isfile(dem):
             error("Cannot find DEM")
-        if not os.path.isdir(os.path.join(projDir,os.path.basename(dem)[:-4],"global")):
-            error("Could not find global results in %s" % os.path.join(projDir,os.path.basename(dem)[:-4],"global"))
-        projDir = os.path.join(projDir,os.path.basename(dem)[:-4])
+        if not os.path.isdir(os.path.join(projDir,"eemt_"+os.path.basename(dem)[:-4],"global")):
+            error("Could not find global results in %s" % os.path.join(projDir,"eemt_"+os.path.basename(dem)[:-4],"global"))
+        projDir = os.path.join(projDir,"eemt_"+os.path.basename(dem)[:-4])
 ##--Directory
     elif sub == 'directory':
         if not os.path.isdir(projDir):
