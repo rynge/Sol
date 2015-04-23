@@ -16,8 +16,8 @@ FLAT_SUN=$12
 SLOPE=$13
 ASPECT=$14
 
-WORKING_DIR=$RANDOM
-LOCATION=${DIRECTORY}/sol_data/tmp-${WORKING_DIR}/PERMANENT
+WORKING_DIR=$RANDOM 
+LOCATION=${DIRECTORY}/sol_data/tmp_${WORKING_DIR}/PERMANENT
 GRASSRC=${DIRECTORY}/.grassrc_${WORKING_DIR}
 
 export GISRC=${GRASSRC}
@@ -25,6 +25,10 @@ export GISRC=${GRASSRC}
 ###############################################################################
 #START GRASS SETUP
 ###############################################################################
+#Create location directory structure
+if [ ! -e $LOCATION ]; then
+    mkdir -p $LOCATION
+fi
 #Set wind info
 if [ ! -e ${LOCATION}/DEFAULT_WIND ]; then
         cat > "${LOCATION}/DEFAULT_WIND" << __EOF__
@@ -69,12 +73,15 @@ g.mremove -f "*"
 
 
 #Import DEM
+echo "Importing DEM"
 r.in.gdal input=${DEM} output=dem_10m
 
 #Set Region
+echo "Setting Region"
 g.region -s rast=dem_10m
 
 #Import DAYMET Data - tmin,tmax,twi,prcp,vp
+echo "Importing DAYMET Data"
 r.in.gdal input=${TMIN} output=tmin
 r.in.gdal input=${TMAX} output=tmax
 r.in.gdal input=${TWI} output=twi

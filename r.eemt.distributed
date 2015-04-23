@@ -95,7 +95,7 @@ def load_eemt_tasks(wq,proj_dir,syear,eyear,dem):
             prcp = proj_dir+"/daymet/prcp/prcp_%d_%s.tif" % (year,month)
             vp = proj_dir+"/daymet/vp/vp_%d_%s.tif" % (year,month)
             na_dem = proj_dir+"/daymet/NA_DEM.tif"
-            command = "./reemt.sh" + " " + proj_dir + month + " " + `year` + " " + dem + " " + na_dem + " " + tmin + " " + tmax + " " + vp + " " + twi + " " + total_sun + " " + flat_sun + " " + slope + " " + aspect
+            command = "./reemt.sh" + " " + proj_dir + " " + month + " " + `year` + " " + dem + " " + na_dem + " " + tmin + " " + tmax + " " + vp + " " + twi + " " + total_sun + " " + flat_sun + " " + slope + " " + aspect
 
             task = Task(command)
             task.specify_input_file(reemt,"reemt.sh", WORK_QUEUE_INPUT, cache=True)
@@ -113,21 +113,11 @@ def load_eemt_tasks(wq,proj_dir,syear,eyear,dem):
             task.specify_input_file(na_dem,na_dem,WORK_QUEUE_INPUT,cache=True)
 
             task.specify_output_file(eemt, eemt, cache=False)
-
+            print(command)
             wq.submit(task)
             tasks=tasks+1
     return wq,tasks
-
 def create_project_directories(proj_dir):
-    if not os.path.exists(os.path.join(proj_dir,"r.sun")):
-        os.makedirs(os.path.join(proj_dir,"r.sun/global"))
-        os.makedirs(os.path.join(proj_dir,"r.sun/global/daily"))
-        os.makedirs(os.path.join(proj_dir,"r.sun/global/monthly"))
-        os.makedirs(os.path.join(proj_dir,"r.sun/global/annual"))
-        os.makedirs(os.path.join(proj_dir,"r.sun/insol"))
-        os.makedirs(os.path.join(proj_dir,"r.sun/insol/daily"))
-        os.makedirs(os.path.join(proj_dir,"r.sun/insol/monthly"))
-        os.makedirs(os.path.join(proj_dir,"r.sun/insol/annual"))
     if not os.path.exists(os.path.join(proj_dir,"eemt")):
         os.makedirs(os.path.join(proj_dir,"eemt"))
         os.makedirs(os.path.join(proj_dir,"eemt/summary"))
@@ -285,8 +275,8 @@ def main():
                 command.append(filepath)
                 command.append(daymet_output)
                 print("Downloading " + param + " for " + month+str(year))
-                process=Popen(command,shell=False)
-                stdout,stderr=process.communicate()
+#                process=Popen(command,shell=False)
+#                stdout,stderr=process.communicate()
     print("All national DAYMET data downloaded")
     print("Partitioning national data to local region")
     for param in PARAMS:
@@ -307,8 +297,8 @@ def main():
 ##--Load RSeries Tasks
     wq,tasks_monthly = rseries.load_monthly_tasks(wq,proj_dir)
     run_workqueue(wq,tasks_monthly,proj_dir)
-    wq,tasks_annual = rseries.load_annual_tasks(wq,proj_dir)
-    run_workqueue(wq,tasks_annual,proj_dir)
+#    wq,tasks_annual = rseries.load_annual_tasks(wq,proj_dir)
+#    run_workqueue(wq,tasks_annual,proj_dir)
     wq,tasks_eemt = load_eemt_tasks(wq,proj_dir,start_year,end_year,warped_tif.getName()+".tif")
 ##--Spin up workqueue 
     run_workqueue(wq,tasks_eemt,proj_dir)
