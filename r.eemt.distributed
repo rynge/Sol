@@ -83,7 +83,8 @@ def load_eemt_tasks(wq,proj_dir,syear,eyear,dem):
     reemt = os.path.join(script_location,"reemt.sh")
     for year in range(syear,eyear+1):
         for month in MONTHS:
-            eemt = proj_dir+"/eemt/yearly/%s_%d" % (month,year)
+            eemt_topo = proj_dir+"/eemt/yearly/EEMT_Topo_%d_%s.tif" % (year,month)
+            eemt_trad = proj_dir+"/eemt/yearly/EEMT_Trad_%d_%s.tif" % (year,month)
             total_sun = proj_dir+"/global/monthly/total_sun_%s_average.tif" % month
             hours_sun = proj_dir+"/insol/monthly/hours_sun_%s_average.tif" % month
             flat_sun = proj_dir+"/flat.tif"
@@ -112,7 +113,8 @@ def load_eemt_tasks(wq,proj_dir,syear,eyear,dem):
             task.specify_input_file(vp,vp,WORK_QUEUE_INPUT,cache=False)
             task.specify_input_file(na_dem,na_dem,WORK_QUEUE_INPUT,cache=True)
 
-            task.specify_output_file(eemt, eemt, cache=False)
+            task.specify_output_file(eemt_topo, eemt_topo, cache=False)
+            task.specify_output_file(eemt_trad, eemt_trad, cache=False)
             print(command)
             wq.submit(task)
             tasks=tasks+1
@@ -266,6 +268,9 @@ def main():
         sys.exit(1)
 ##--Get DAYMET Data for given years
     print("Downloading national DAYMET data")
+    command = "iget /iplant/home/tyson_swetnam/DAYMET/NA_DEM/na_dem.tif " + proj_dir+"/na_dem/tif"
+    process=Popen(command,shell=False)
+    stdout,stderr=process.communicate()
     for year in range(start_year,end_year+1):
         for param in PARAMS:
             for month in MONTHS:

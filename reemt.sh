@@ -197,8 +197,8 @@ r.mapcalc "E_ppt_topo =F*4185.5*DT*E_bio_topo"
 r.mapcalc "EEMT_Topo = E_ppt_topo + E_bio_topo"
 
 
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=EEMT_Topo output=${DIRECTORY}/EEMT_Topo_${MONTH}_${YEAR}.tif
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=EEMT_Trad output=${DIRECTORY}/EEMT_Trad_${MONTH}_${YEAR}.tif
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=EEMT_Topo output=${DIRECTORY}/eemt/EEMT_Topo_${MONTH}_${YEAR}.tif
+r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=EEMT_Trad output=${DIRECTORY}/eemt/EEMT_Trad_${MONTH}_${YEAR}.tif
 r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=flat_total_sun output=${DIRECTORY}/flat.tif
 
 rm -rf ${DIRECTORY}/sol_data
