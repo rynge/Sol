@@ -17,9 +17,9 @@ make check install
 cd ..
 
 #netcdf
-wget ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4.3.2.tar.gz
-tar xzf netcdf-4.3.2.tar.gz
-cd netcdf-4.3.2
+wget ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4.3.3.tar.gz
+tar xzf netcdf-4.3.3.tar.gz
+cd netcdf-4.3.3
 CPPFLAGS=-I${HOME}/include LDFLAGS=-L${HOME}/lib ./configure --prefix=$HOME
 make check install
 cd ..
