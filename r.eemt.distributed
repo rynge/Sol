@@ -61,14 +61,16 @@ def run_workqueue(wq, tasks,proj_dir):
             current=datetime.datetime.now()
             if t.return_status != 0:
                 warning("Task %d did not return successfully" % t.id)
-		if(t.total_submissions <= 10):
+		if(t.total_submissions <= 2):
 			print("\tResubmitting task %d for the %d time." % (t.id,t.total_submissions))
 			log(t.output)
 			print(t.output)
+			print(t.return_status)
 			wq.submit(t)
                 errors = errors + 1
             else:
                 print("Task %d of %d completed" % (completed+1,tasks))
+  		print(t.output)
                 completed = completed + 1
             print("\tElapsed Time: ", current-start)
     if errors == 0:
@@ -83,11 +85,11 @@ def load_eemt_tasks(wq,proj_dir,syear,eyear,dem):
     reemt = os.path.join(script_location,"reemt.sh")
     for year in range(syear,eyear+1):
         for month in MONTHS:
-            eemt_topo = proj_dir+"/eemt/yearly/EEMT_Topo_%d_%s.tif" % (year,month)
-            eemt_trad = proj_dir+"/eemt/yearly/EEMT_Trad_%d_%s.tif" % (year,month)
+            eemt_topo = proj_dir+"/eemt/EEMT_Topo_%s_%d.tif" % (month,year)
+            eemt_trad = proj_dir+"/eemt/EEMT_Trad_%s_%d.tif" % (month,year)
             total_sun = proj_dir+"/global/monthly/total_sun_%s_average.tif" % month
             hours_sun = proj_dir+"/insol/monthly/hours_sun_%s_average.tif" % month
-            flat_sun = proj_dir+"/flat.tif"
+            flat_sun = proj_dir+"/global/monthly/flat.tif"
             slope = proj_dir+"/slope.tif"
             aspect= proj_dir+"/aspect.tif"
             tmin = proj_dir+"/daymet/tmin/tmin_%d_%s.tif" % (year,month)
@@ -95,23 +97,23 @@ def load_eemt_tasks(wq,proj_dir,syear,eyear,dem):
             twi = proj_dir+"/twi.tif"
             prcp = proj_dir+"/daymet/prcp/prcp_%d_%s.tif" % (year,month)
             vp = proj_dir+"/daymet/vp/vp_%d_%s.tif" % (year,month)
-            na_dem = proj_dir+"/daymet/NA_DEM.tif"
+            na_dem = proj_dir+"na_dem.tif"
             command = "./reemt.sh" + " " + proj_dir + " " + month + " " + `year` + " " + dem + " " + na_dem + " " + tmin + " " + tmax + " " + vp + " " + " " + prcp + " " + twi + " " + total_sun + " " + hours_sun + " " + flat_sun + " " + slope + " " + aspect
-
+	    command = "./reemt.sh " + proj_dir + " " + month + " " + `year` + " dem.tif na_dem.tif tmin.tif tmax.tif vp.tif prcp.tif twi.tif total_sun.tif hours_sun.tif flat_sun.tif slope.tif aspect.tif"
             task = Task(command)
             task.specify_input_file(reemt,"reemt.sh", WORK_QUEUE_INPUT, cache=True)
-            task.specify_input_file(dem,dem ,WORK_QUEUE_INPUT,cache=True)
-            task.specify_input_file(total_sun,total_sun,WORK_QUEUE_INPUT,cache=False)
-            task.specify_input_file(hours_sun,hours_sun,WORK_QUEUE_INPUT,cache=False)
-            task.specify_input_file(flat_sun,flat_sun,WORK_QUEUE_INPUT,cache=True)
-            task.specify_input_file(slope,slope,WORK_QUEUE_INPUT,cache=True)
-            task.specify_input_file(aspect,aspect,WORK_QUEUE_INPUT,cache=True)
-            task.specify_input_file(tmin,tmin,WORK_QUEUE_INPUT,cache=False)
-            task.specify_input_file(tmax,tmax,WORK_QUEUE_INPUT,cache=False)
-            task.specify_input_file(twi,twi,WORK_QUEUE_INPUT,cache=False)
-            task.specify_input_file(prcp,prcp,WORK_QUEUE_INPUT,cache=False)
-            task.specify_input_file(vp,vp,WORK_QUEUE_INPUT,cache=False)
-            task.specify_input_file(na_dem,na_dem,WORK_QUEUE_INPUT,cache=True)
+            task.specify_input_file(dem,"dem.tif" ,WORK_QUEUE_INPUT,cache=True)
+            task.specify_input_file(total_sun,"total_sun.tif",WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(hours_sun,"hours_sun.tif",WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(flat_sun,"flat_sun.tif",WORK_QUEUE_INPUT,cache=True)
+            task.specify_input_file(slope,"slope.tif",WORK_QUEUE_INPUT,cache=True)
+            task.specify_input_file(aspect,"aspect.tif",WORK_QUEUE_INPUT,cache=True)
+            task.specify_input_file(tmin,"tmin.tif",WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(tmax,"tmax.tif",WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(twi,"twi.tif",WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(prcp,"prcp.tif",WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(vp,"vp.tif",WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(na_dem,"na_dem.tif",WORK_QUEUE_INPUT,cache=True)
 
             task.specify_output_file(eemt_topo, eemt_topo, cache=False)
             task.specify_output_file(eemt_trad, eemt_trad, cache=False)
@@ -120,6 +122,12 @@ def load_eemt_tasks(wq,proj_dir,syear,eyear,dem):
             tasks=tasks+1
     return wq,tasks
 def create_project_directories(proj_dir):
+    if not os.path.exists(os.path.join(proj_dir,"global")):
+        os.makedirs(os.path.join(proj_dir,"global","daily"))
+        os.makedirs(os.path.join(proj_dir,"global","monthly"))
+    if not os.path.exists(os.path.join(proj_dir,"insol")):
+        os.makedirs(os.path.join(proj_dir,"insol","daily"))
+        os.makedirs(os.path.join(proj_dir,"insol","monthly"))
     if not os.path.exists(os.path.join(proj_dir,"eemt")):
         os.makedirs(os.path.join(proj_dir,"eemt"))
         os.makedirs(os.path.join(proj_dir,"eemt/summary"))
@@ -244,7 +252,6 @@ def main():
         error("WorkQueue could not be instantiated")
 
 ######--EEMT--#####
-
 ##--Warp DEM
     test=tiffparser.TiffParser()
     test.loadTiff(dem)
@@ -258,6 +265,8 @@ def main():
     lry = float(warped_coords[0][0].split(',')[1])
     ulx = float(warped_coords[0][1].split(',')[0])
     uly = float(warped_coords[0][1].split(',')[1])
+
+
 ##--Start IRODS
     command=['iinit']
     process=Popen(command,stderr=PIPE,shell=True)
@@ -268,13 +277,14 @@ def main():
         sys.exit(1)
 ##--Get DAYMET Data for given years
     print("Downloading national DAYMET data")
-    command = "iget /iplant/home/tyson_swetnam/DAYMET/NA_DEM/na_dem.tif " + proj_dir+"/na_dem/tif"
+    command = "iget /iplant/home/tyson_swetnam/DAYMET/NA_DEM/na_dem.tif " + proj_dir + "/na_dem.tif"
+    command = ['iget','/iplant/home/tyson_swetnam/DAYMET/NA_DEM/na_dem.tif',proj_dir+'/na_dem.tif']
     process=Popen(command,shell=False)
     stdout,stderr=process.communicate()
     for year in range(start_year,end_year+1):
         for param in PARAMS:
             for month in MONTHS:
-                command = ['iget','-f']
+                command = ['iget']
                 filepath=os.path.join(IPLANT_ROOT,param+"_allyrs",param+"_"+str(year)+"_"+month+".tif")
                 daymet_output=os.path.join(proj_dir,"daymet",param)
                 command.append(filepath)
@@ -299,13 +309,16 @@ def main():
 ##--Load RSun Tasks
     wq,tasks_sun = rsun.load_tasks(wq,proj_dir,range(1,366),warped_tif.getName()+".tif")
     run_workqueue(wq,tasks_sun,proj_dir)
+    dir_name=proj_dir+"/global/daily"
+    num_files = len([f for f in os.listdir(dir_name) if os.path.isfile(f)])
+    if(num_files < 730):
+	print("An error has occurred creating the Solar Insolation Models. Please Try again")
+ 	exit(1)
 ##--Load RSeries Tasks
     wq,tasks_monthly = rseries.load_monthly_tasks(wq,proj_dir)
     run_workqueue(wq,tasks_monthly,proj_dir)
-#    wq,tasks_annual = rseries.load_annual_tasks(wq,proj_dir)
-#    run_workqueue(wq,tasks_annual,proj_dir)
-    wq,tasks_eemt = load_eemt_tasks(wq,proj_dir,start_year,end_year,warped_tif.getName()+".tif")
-    run_workqueue(wq,tasks_eemt,proj_dir)
+    #wq,tasks_eemt = load_eemt_tasks(wq,proj_dir,start_year,end_year,warped_tif.getName()+".tif")
+    #run_workqueue(wq,tasks_eemt,proj_dir)
 
 if __name__ == '__main__':
     main()

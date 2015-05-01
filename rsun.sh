@@ -96,13 +96,17 @@ r.in.gdal input=$DEM output=dem
 g.region -s rast=dem
 #Calculate Slope and Aspect
 r.slope.aspect elevation=dem slope=slope aspect=aspect
+#Create flat map
+r.mapcalc "zeros=if(dem>0,0,null())"
+r.sun elevin=dem aspin=zeros slopein=zeros day=$DAY step=$STEPSIZE dist=$INTERVAL glob_rad=flat_total_sun
 #Using dem and calculated slope and aspect, generate a solar insulation model
 r.sun elevin=dem aspin=aspect slopein=slope day=$DAY step=$STEPSIZE dist=$INTERVAL insol_time=hours_sun glob_rad=total_sun
 #Output files
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun output=./global/daily/total_sun_day_${DAY}.tif
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=hours_sun output=./insol/daily/hours_sun_day_${DAY}.tif
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=slope output=./slope.tif
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=aspect output=./aspect.tif
+r.out.gdal -c input=total_sun output=./global/daily/total_sun_day_${DAY}.tif
+r.out.gdal -c input=flat_total_sun output=./global/daily/flat_total_sun_day_${DAY}.tif
+r.out.gdal -c input=hours_sun output=./insol/daily/hours_sun_day_${DAY}.tif
+r.out.gdal -c input=slope output=./slope.tif
+r.out.gdal -c input=aspect output=./aspect.tif
 ###############################################################################
 #GRASS OPERATIONS COMPLETE => CLEAN UP FILES
 ###############################################################################

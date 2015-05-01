@@ -130,8 +130,8 @@ r.in.gdal input=${NA_DEM} output=dem_1km
 echo "Creating Zeros Map"
 r.mapcalc "zeros=if(dem_10m>0,0,null())"
 echo "Create Flat Sun Map"
-#r.sun elevin=dem_10m aspin=zeros slopein=zeros day="1" step="0.05" dist="1" glob_rad=flat_total_sun  
-r.in.gdal input=$DIRECTORY/flat.tif output=flat_total_sun
+r.sun elevin=dem_10m aspin=zeros slopein=zeros day="1" step="0.05" dist="1" glob_rad=flat_total_sun  
+#r.in.gdal input=$DIRECTORY/flat.tif output=flat_total_sun
 
 
 #Locally Corrected Temperature

@@ -105,6 +105,7 @@ while (( "$#" )); do
     NAME=`cut -d'.' -f2 temp`
     echo $NAME > temp
     NAME=`cut -d'/' -f4 temp`
+    echo "IMPORTING UNDER NAME: $NAME"
     r.in.gdal input=$1 output=$NAME
     shift
 done
@@ -118,6 +119,7 @@ r.series -n input="`g.mlist pattern='hours_sun_day_*' sep=,`" output=hours_sun_$
 #Compute average 
 r.series -n input="`g.mlist pattern='total_sun_day_*' sep=,`" output=total_sun_${MONTH}_average method=average
 r.series -n input="`g.mlist pattern='hours_sun_day_*' sep=,`" output=hours_sun_${MONTH}_average method=average
+r.series -n input="`g.mlist pattern='flat_total_sun_day_*' sep=,`" output=flat_total_sun_${MONTH} method=average
 #Compute median
 r.series -n input="`g.mlist pattern='total_sun_day_*' sep=,`" output=total_sun_${MONTH}_median method=median
 r.series -n input="`g.mlist pattern='hours_sun_day_*' sep=,`" output=hours_sun_${MONTH}_median method=median
@@ -135,6 +137,7 @@ r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=hours_sun_${MONTH}_sum outp
 #Average Maps
 r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun_${MONTH}_average output=global/monthly/total_sun_${MONTH}_average.tif
 r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=hours_sun_${MONTH}_average output=insol/monthly/hours_sun_${MONTH}_average.tif
+r.out.gdal -c createopt="TWF=YES,COMPRESS=LZW" input=flat_total_sun_${MONTH} output=global/monthly/flat_total_sun_${MONTH}.tif
 #Median Maps
 r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun_${MONTH}_median output=global/monthly/total_sun_${MONTH}_median.tif
 r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=hours_sun_${MONTH}_median output=insol/monthly/hours_sun_${MONTH}_median.tif
