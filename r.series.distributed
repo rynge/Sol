@@ -104,7 +104,6 @@ def load_monthly_tasks(wq,proj_dir):
 	print("FLAT INPUTS: " + flat_inputs)
 	print("FLAT AVERAGE: " + flat_sun_avg)
 	print("TOTAL SUN AVG: " + total_sun_avg)
-        print(command)
         wq.submit(task)
         tasks = tasks+1
         i = i + 1

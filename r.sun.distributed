@@ -58,6 +58,7 @@ def load_tasks(wq, proj_dir, days, dem):
         task.specify_output_file(slope, "slope.tif", cache = False)
         task.specify_output_file(aspect,"aspect.tif",cache = False)
     ##--Submit
+        print(command)
         wq.submit(task)
         tasks=tasks+1
     return wq, tasks

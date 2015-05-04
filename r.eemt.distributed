@@ -3,6 +3,7 @@ from __future__ import print_function
 
 
 MONTHS=["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"]
+MONTH_DAYS=[[1,31],[32,59],[60,90],[91,120],[121,150],[152,181],[182,212],[213,243],[244,273],[274,304],[305,334],[335,365]]
 PARAMS=["tmin","tmax","vp","prcp"]
 IPLANT_ROOT="/iplant/home/tyson_swetnam/DAYMET/"
 
@@ -32,7 +33,7 @@ rsun = imp.load_source("rsun","./r.sun.distributed")
 rseries = imp.load_source("rseries","./r.series.distributed")
 #tiffparser = imp.load_source("tiffparser","./tiffparser.py")
 tiffparser = imp.load_source("tiffparser","./parser.py")
-
+quiet=True
 try:
     imp.find_module('work_queue')
     found = True
@@ -68,11 +69,13 @@ def run_workqueue(wq, tasks,proj_dir):
 			print(t.return_status)
 			wq.submit(t)
                 errors = errors + 1
+                print("\tElapsed Time: ", current-start)
             else:
+                if quiet:
+          		print(t.output)
                 print("Task %d of %d completed" % (completed+1,tasks))
-  		print(t.output)
                 completed = completed + 1
-            print("\tElapsed Time: ", current-start)
+                print("\tElapsed Time: ", current-start)
     if errors == 0:
         print("All tasks completed successfully!")
     else:
@@ -80,6 +83,52 @@ def run_workqueue(wq, tasks,proj_dir):
     finish=datetime.datetime.now()    
     print("Finished at: ",finish.strftime("%d%b %H:%M"))
     print("Elapsed Time: ", finish-start)
+def run_monthly_averages(proj_dir):
+    i = 0
+    for month in MONTHS:
+        start_day = MONTH_DAYS[i][0] 
+        end_day   =  MONTH_DAYS[i][1]
+        command = "./rmean.sh %s -D %s" % (month,proj_dir)
+        global_inputs = ""
+        insol_inputs  = ""
+        flat_inputs   = ""
+        flat_sun_avg = proj_dir+"/global/monthly/flat_total_sun_%s.tif" % month
+        total_sun_avg = proj_dir+"/global/monthly/total_sun_%s_average.tif" % month
+        hours_sun_avg = proj_dir+"/insol/monthly/hours_sun_%s_average.tif" % month
+        total_sun_med = proj_dir+"/global/monthly/total_sun_%s_median.tif" % month
+        hours_sun_med = proj_dir+"/insol/monthly/hours_sun_%s_median.tif" % month
+        total_sun_std = proj_dir+"/global/monthly/total_sun_%s_stddev.tif" % month
+        hours_sun_std = proj_dir+"/insol/monthly/hours_sun_%s_stddev.tif" % month
+        total_sun_var = proj_dir+"/global/monthly/total_sun_%s_variance.tif" % month
+        hours_sun_var = proj_dir+"/insol/monthly/hours_sun_%s_variance.tif" % month
+        for day in range(start_day,end_day+1):
+            global_inputs=global_inputs + " %s/global/daily/total_sun_day_%d.tif" % (proj_dir,day)
+            insol_inputs=insol_inputs + " %s/insol/daily/hours_sun_day_%d.tif" % (proj_dir,day)
+            flat_inputs=flat_inputs+" %s/global/daily/flat_total_sun_day_%d.tif" % (proj_dir,day)
+        command = command + global_inputs + " " + insol_inputs + " "  + flat_inputs
+        print(command)
+        process=Popen(command,shell=True)
+        stdout,stderr=process.communicate()
+        i = i+1
+def run_eemt(wq,proj_dir,syear,eyear,dem):
+    for year in range(syear,eyear+1):
+        for month in MONTHS:
+            eemt_topo = proj_dir+"/eemt/EEMT_Topo_%s_%d.tif" % (month,year)
+            eemt_trad = proj_dir+"/eemt/EEMT_Trad_%s_%d.tif" % (month,year)
+            total_sun = proj_dir+"/global/monthly/total_sun_%s_average.tif" % month
+            hours_sun = proj_dir+"/insol/monthly/hours_sun_%s_average.tif" % month
+            flat_sun = proj_dir+"/global/monthly/flat_total_sun_%s.tif" % month
+            slope = proj_dir+"/slope.tif"
+            aspect= proj_dir+"/aspect.tif"
+            tmin = proj_dir+"/daymet/tmin/tmin_%d_%s.tif" % (year,month)
+            tmax = proj_dir+"/daymet/tmax/tmax_%d_%s.tif" % (year,month)
+            twi = proj_dir+"/twi.tif"
+            prcp = proj_dir+"/daymet/prcp/prcp_%d_%s.tif" % (year,month)
+            vp = proj_dir+"/daymet/vp/vp_%d_%s.tif" % (year,month)
+            na_dem = proj_dir+"/na_dem.tif"
+            command = "./reemt.sh" + " " + proj_dir + " " + month + " " + `year` + " " + dem + " " + na_dem + " " + tmin + " " + tmax + " " + vp + " " + " " + prcp + " " + twi + " " + total_sun + " " +     hours_sun + " " + flat_sun + " " + slope + " " + aspect
+            process=Popen(command,shell=True)
+            stdout,stderr=process.communicate()
 def load_eemt_tasks(wq,proj_dir,syear,eyear,dem):
     tasks = 0
     reemt = os.path.join(script_location,"reemt.sh")
@@ -203,6 +252,7 @@ def main():
     parser.add_argument('--end-year', '-e', type=int, dest="end")
     parser.add_argument('--name','-n',dest="name")
     parser.add_argument('-O',dest="output")
+    parser.add_argument('-v',dest="verbose")
     parser.add_argument('args',nargs=1)
     args=parser.parse_args()
 
@@ -211,6 +261,7 @@ def main():
     end_year  = args.end
     name      = args.name
     proj_dir  = args.output
+    verbose   = args.verbose
     port      = 9123 
 
 ##--Argument Validation
@@ -235,7 +286,8 @@ def main():
 ##--If output null, output to current directory
     if not proj_dir:
         proj_dir="./"+"eemt_"+dem[:-4]
-
+    if verbose:
+        quiet=False
     start=datetime.datetime.now()
     print("Started at: ",start.strftime("%d%b %H:%M"))
 
@@ -265,7 +317,6 @@ def main():
     lry = float(warped_coords[0][0].split(',')[1])
     ulx = float(warped_coords[0][1].split(',')[0])
     uly = float(warped_coords[0][1].split(',')[1])
-
 
 ##--Start IRODS
     command=['iinit']
@@ -311,14 +362,13 @@ def main():
     run_workqueue(wq,tasks_sun,proj_dir)
     dir_name=proj_dir+"/global/daily"
     num_files = len([f for f in os.listdir(dir_name) if os.path.isfile(f)])
-    if(num_files < 730):
-	print("An error has occurred creating the Solar Insolation Models. Please Try again")
- 	exit(1)
+    print(num_files)
+    #if(num_files < 730):
+    #	print("An error has occurred creating the Solar Insolation Models. Please Try again")
+    #	exit(1)
 ##--Load RSeries Tasks
-    wq,tasks_monthly = rseries.load_monthly_tasks(wq,proj_dir)
-    run_workqueue(wq,tasks_monthly,proj_dir)
-    #wq,tasks_eemt = load_eemt_tasks(wq,proj_dir,start_year,end_year,warped_tif.getName()+".tif")
-    #run_workqueue(wq,tasks_eemt,proj_dir)
+    run_monthly_averages(proj_dir)
+    run_eemt(wq,proj_dir,start_year,end_year,warped_tif.getName()+".tif")
 
 if __name__ == '__main__':
     main()

@@ -127,11 +127,8 @@ echo "NA_DEM"
 r.in.gdal input=${NA_DEM} output=dem_1km
 
 #Create Flat map
-echo "Creating Zeros Map"
-r.mapcalc "zeros=if(dem_10m>0,0,null())"
-echo "Create Flat Sun Map"
-r.sun elevin=dem_10m aspin=zeros slopein=zeros day="1" step="0.05" dist="1" glob_rad=flat_total_sun  
-#r.in.gdal input=$DIRECTORY/flat.tif output=flat_total_sun
+echo "Flat Sun"
+r.in.gdal input=${FLAT_SUN} output=flat_total_sun
 
 
 #Locally Corrected Temperature
@@ -197,8 +194,7 @@ r.mapcalc "E_ppt_topo =F*4185.5*DT*E_bio_topo"
 r.mapcalc "EEMT_Topo = E_ppt_topo + E_bio_topo"
 
 
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=EEMT_Topo output=${DIRECTORY}/eemt/EEMT_Topo_${MONTH}_${YEAR}.tif
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=EEMT_Trad output=${DIRECTORY}/eemt/EEMT_Trad_${MONTH}_${YEAR}.tif
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=flat_total_sun output=${DIRECTORY}/flat.tif
+r.out.gdal -c input=EEMT_Topo output=${DIRECTORY}/eemt/EEMT_Topo_${MONTH}_${YEAR}.tif
+r.out.gdal -c input=EEMT_Trad output=${DIRECTORY}/eemt/EEMT_Trad_${MONTH}_${YEAR}.tif
 
 rm -rf ${DIRECTORY}/sol_data

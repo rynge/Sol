@@ -104,8 +104,9 @@ while (( "$#" )); do
     echo $1 > temp
     NAME=`cut -d'.' -f2 temp`
     echo $NAME > temp
-    NAME=`cut -d'/' -f4 temp`
-    echo "IMPORTING UNDER NAME: $NAME"
+    NAME=`cut -d'/' -f5 temp`
+    echo "IMPORTING UNDER NAME: $NAME for Argument $1"
+
     r.in.gdal input=$1 output=$NAME
     shift
 done
@@ -131,22 +132,24 @@ r.series -n input="`g.mlist pattern='total_sun_day_*' sep=,`" output=total_sun_$
 r.series -n input="`g.mlist pattern='hours_sun_day_*' sep=,`" output=hours_sun_${MONTH}_variance method=variance
 
 
+echo "Printing out Sum maps: global/monthly/total_sun_${MONTH}_sum.tif"
 #Sum Maps
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun_${MONTH}_sum output=global/monthly/total_sun_${MONTH}_sum.tif
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=hours_sun_${MONTH}_sum output=insol/monthly/hours_sun_${MONTH}_sum.tif
+r.out.gdal -c input=total_sun_${MONTH}_sum output=${DIRECTORY}/global/monthly/total_sun_${MONTH}_sum.tif
+r.out.gdal -c input=hours_sun_${MONTH}_sum output=${DIRECTORY}/insol/monthly/hours_sun_${MONTH}_sum.tif
 #Average Maps
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun_${MONTH}_average output=global/monthly/total_sun_${MONTH}_average.tif
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=hours_sun_${MONTH}_average output=insol/monthly/hours_sun_${MONTH}_average.tif
-r.out.gdal -c createopt="TWF=YES,COMPRESS=LZW" input=flat_total_sun_${MONTH} output=global/monthly/flat_total_sun_${MONTH}.tif
+echo "Printing out Average maps: global/monthly/flat_total_sun_${MONTH}.tif"
+r.out.gdal -c input=total_sun_${MONTH}_average output=${DIRECTORY}/global/monthly/total_sun_${MONTH}_average.tif
+r.out.gdal -c input=hours_sun_${MONTH}_average output=${DIRECTORY}/insol/monthly/hours_sun_${MONTH}_average.tif
+r.out.gdal -c input=flat_total_sun_${MONTH} output=${DIRECTORY}/global/monthly/flat_total_sun_${MONTH}.tif
 #Median Maps
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun_${MONTH}_median output=global/monthly/total_sun_${MONTH}_median.tif
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=hours_sun_${MONTH}_median output=insol/monthly/hours_sun_${MONTH}_median.tif
+r.out.gdal -c input=total_sun_${MONTH}_median output=${DIRECTORY}/global/monthly/total_sun_${MONTH}_median.tif
+r.out.gdal -c input=hours_sun_${MONTH}_median output=${DIRECTORY}/insol/monthly/hours_sun_${MONTH}_median.tif
 #Standard Deviation Maps
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun_${MONTH}_stddev output=global/monthly/total_sun_${MONTH}_stddev.tif
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=hours_sun_${MONTH}_stddev output=insol/monthly/hours_sun_${MONTH}_stddev.tif
+r.out.gdal -c input=total_sun_${MONTH}_stddev output=${DIRECTORY}/global/monthly/total_sun_${MONTH}_stddev.tif
+r.out.gdal -c input=hours_sun_${MONTH}_stddev output=${DIRECTORY}/insol/monthly/hours_sun_${MONTH}_stddev.tif
 #Variance Maps
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=total_sun_${MONTH}_variance output=global/monthly/total_sun_${MONTH}_variance.tif
-r.out.gdal -c createopt="TFW=YES,COMPRESS=LZW" input=hours_sun_${MONTH}_variance output=insol/monthly/hours_sun_${MONTH}_variance.tif
+r.out.gdal -c input=total_sun_${MONTH}_variance output=${DIRECTORY}/global/monthly/total_sun_${MONTH}_variance.tif
+r.out.gdal -c input=hours_sun_${MONTH}_variance output=${DIRECTORY}/insol/monthly/hours_sun_${MONTH}_variance.tif
 ###############################################################################
 #GRASS OPERATIONS COMPLETE => CLEAN UP FILES
 ###############################################################################
