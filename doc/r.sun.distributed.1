@@ -1,0 +1,26 @@
+.TH r.sun.distributed 1 "18 May 2015" "Version 0.0.1" "Sol Manual"
+
+.SH NAME
+r.sun.distributed \- Distributed Solar Insolation Model Generator
+
+.SH SYNOPSIS
+.B r.sun.distributed
+[DEM] [options]
+
+.SH DESCRIPTION
+.B r.sun.distributed
+creates Solar Insolation Models - specifcally Global Insolation and Insolation Time models for the given DEM.  It uses WorkQueue(CCTools) to distributed tasks across many nodes.
+
+.SH OPTIONS
+.B -d, --days
+Specify individual days to create models of (Default: Full Year)
+
+.B -D, --directory
+Specify output directory (Default: ./DEM_Name)
+
+.B -n, --name
+Specify name of WorkQueue project
+
+.SH NOTES
+.B r.sun.distributed
+uses port 9101, so this port must be open and publically accessable
