@@ -31,7 +31,6 @@ from Tiff import Tiff
 #Load r.sun/r.series scipts
 rsun = imp.load_source("rsun","./r.sun.distributed")
 rseries = imp.load_source("rseries","./r.series.distributed")
-#tiffparser = imp.load_source("tiffparser","./tiffparser.py")
 tiffparser = imp.load_source("tiffparser","./parser.py")
 quiet=True
 try:
