@@ -1,0 +1,146 @@
+#!/usr/bin/env python
+from __future__ import print_function
+"""
+r.sun.distributed:  This program was written by N R Callahan in Spring 2015. 
+See manual pages for details.
+(C) 2014 Copywrite N R Callahan, University of Arizona, Tucson, Arizona
+email: nicholas.r.callahan@gmail.com
+"""
+
+"""
+INSERT LICENSE HERE
+"""
+
+
+
+#Default printing functions
+def error(*objs):
+    print("ERROR: ", *objs, file=sys.stderr)
+    exit(1)
+def warning(*objs):
+    print("WARNING: ", *objs, file=sys.stderr)
+import argparse
+import sys, os
+import imp
+#We need work_queue to be installed, but want to die gracefully
+try:
+    imp.find_module('work_queue')
+    found = True
+except ImportError:
+    error("Could not find work_queue.\nAdd location to your PYTHONPATH")
+    exit(1)
+if found:
+    from work_queue import *
+script_location = os.path.abspath(os.path.dirname(sys.argv[0]))
+
+def load_tasks(wq, proj_dir, days, dem):
+    tasks=0
+##--Paths for input files
+    rsun = os.path.join(script_location,"rsun.sh")
+    for day in days:
+    ##--Paths for output files
+        flat_sun = proj_dir+"/global/daily/flat_total_sun_day_%d.tif" % day
+        total_sun = proj_dir+"/global/daily/total_sun_day_%d.tif" % day
+        hours_sun = proj_dir+"/insol/daily/hours_sun_day_%d.tif" % day
+        slope = proj_dir+"/slope.tif"
+        aspect = proj_dir+"/aspect.tif"
+    ##--Command for wq to run
+        command = "rsun.sh dem.tif -d %d -D %s" % (day,proj_dir)
+    ##--Create Task
+        task = Task(command)
+    ##--Input Files
+        task.specify_input_file(dem,"dem.tif",WORK_QUEUE_INPUT,cache=False)
+#        task.specify_input_file(rsun,"rsun.sh", WORK_QUEUE_INPUT, cache=False)
+    ##--Output Files
+	task.specify_output_file(flat_sun,"global/daily/flat_total_sun_day_%d.tif" % day, cache = False)
+        task.specify_output_file(total_sun, "global/daily/total_sun_day_%d.tif" % day, cache = False)
+        task.specify_output_file(hours_sun, "insol/daily/hours_sun_day_%d.tif" % day, cache = False)
+        task.specify_output_file(slope, "slope.tif", cache = False)
+        task.specify_output_file(aspect,"aspect.tif",cache = False)
+    ##--Submit
+	#print("DEM: %s" % dem)
+	#print("FLAT_SUN: %s" % flat_sun)
+	#print("TOTAL_SUN: %s" % total_sun)
+	#print("HOURS_SUN: %s" % hours_sun)
+	#print("SLOPE: %s" % slope)
+	#print("ASPECT: %s" % slope)
+	#print("COMMAND: %s" % command)
+        wq.submit(task)
+        tasks=tasks+1
+    return wq, tasks
+def main():
+    #Set up arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--with-workqueue', dest="workqueue");
+    parser.add_argument('--days','-d',nargs='*',dest="days");
+    parser.add_argument('--directory','-D',dest="dir")
+    parser.add_argument('--name','-n',dest="name")
+    parser.add_argument('args',nargs=1);
+    args=parser.parse_args()
+
+    #Get arguments from argparser (for readability)
+    dem = args.args[0]
+    workqueue = args.workqueue
+    days = args.days
+    port = 9101
+    name = args.name
+    proj_dir = args.dir
+
+##-Name
+    if not name:
+        name="r.sun.dist"
+##--Make sure DEM is really real
+    if not os.path.isfile(dem):
+        error("DEM not found!")
+    if dem[-4:] != ".tif":
+        error("DEM does not end in .tif\nProvide a valid file")
+##--Check directory
+    if not proj_dir:
+        proj_dir=os.path.join("./",os.path.basename(dem)[:-4])
+    if not os.path.exists(os.path.join(proj_dir,"global")):
+        os.makedirs(os.path.join(proj_dir,"global"))
+        os.makedirs(os.path.join(proj_dir,"global/daily"))
+        os.makedirs(os.path.join(proj_dir,"global/monthly"))
+        os.makedirs(os.path.join(proj_dir,"global/annual"))
+    if not os.path.exists(os.path.join(proj_dir,"insol")):
+        os.makedirs(os.path.join(proj_dir,"insol"))
+        os.makedirs(os.path.join(proj_dir,"insol/daily"))
+        os.makedirs(os.path.join(proj_dir,"insol/monthly"))
+        os.makedirs(os.path.join(proj_dir,"insol/annual"))
+    #WQ was not provided, so we need to create our own
+    if not workqueue:
+        try:
+            workqueue = WorkQueue(port)
+            workqueue.specify_name(name)
+            cctools_debug_flags_set("all")
+            cctools_debug_config_file("wq.debug")
+            print("Workqueue started with name " + name)
+        except:
+            error("WorkQueue not created")
+    #If days weren't provided, set days to entire year
+    if not days:
+        days = range(1,366)
+    #If days were provided, we need to make sure they are ints
+    else:
+        days = [int(num) for num in days]
+
+    workqueue,tasks = load_tasks(workqueue,proj_dir,days, dem)
+    print("Waiting for tasks to return")
+    completed = 0
+    while not workqueue.empty():
+        t = workqueue.wait(5)
+        if t:
+            print("Task complete")
+	    print(t.output)
+            if t.return_status != 0:
+                print("Task error!")
+		workqueue.submit(t)
+                print(t.output)
+	    else:
+#		print("Task %d of %d completed" % (completed+1,tasks))
+		completed=completed+1
+    print("All tasks complete")
+
+if __name__ == '__main__':
+    main()
+

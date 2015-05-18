@@ -1,0 +1,375 @@
+#!/usr/bin/env python
+from __future__ import print_function
+
+
+MONTHS=["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"]
+MONTH_DAYS=[[1,31],[32,59],[60,90],[91,120],[121,150],[152,181],[182,212],[213,243],[244,273],[274,304],[305,334],[335,365]]
+PARAMS=["tmin","tmax","vp","prcp"]
+IPLANT_ROOT="/iplant/home/tyson_swetnam/DAYMET/"
+
+
+def error(*objs):
+    print("ERROR: ", *objs, file=sys.stderr)
+    exit(1)
+def warning(*objs):
+    print("WARNING: ", *objs, file=sys.stderr)
+def log(*objs):
+    log_file = open("task_output.log","a")
+    print(*objs,file=log_file)
+    log_file.close()
+def error_log(proj_dir,*objs):
+    error_file = open(os.path.join(proj_dir,"sys.err"),"a")
+    print(*objs,file=error_file)
+    error_file.close()
+from subprocess import Popen, PIPE
+import argparse, getpass
+import sys, os, datetime
+import urllib
+import imp
+from Tiff import Tiff
+
+script_location = os.path.abspath(os.path.dirname(sys.argv[0]))
+#Load r.sun/r.series scipts
+rsun = imp.load_source("rsun",script_location+"/r.sun.distributed")
+rseries = imp.load_source("rseries",script_location+"/r.series.distributed")
+tiffparser = imp.load_source("tiffparser",script_location+"/parser.py")
+quiet=True
+try:
+    imp.find_module('work_queue')
+    found = True
+except ImportError:
+    error("Could not find work_queue module. \nAdd location to your PYTHONPATH")
+    exit(1)
+if found:
+    from work_queue import *
+
+
+DAYMET_URL="http://thredds.daac.ornl.gov/thredds/fileServer/ornldaac/1219/tiles/"
+
+def run_workqueue(wq, tasks,proj_dir):
+    start=datetime.datetime.now()
+    print("Started at: ",start.strftime("%d%b %H:%M"))
+    errors=0
+    completed=0
+    while not wq.empty():
+        t = wq.wait(5)
+        if t:
+	    log(t.output)
+            current=datetime.datetime.now()
+            if t.return_status != 0:
+                warning("Task %d did not return successfully" % t.id)
+		if(t.total_submissions <= 2):
+			print("\tResubmitting task %d for the %d time." % (t.id,t.total_submissions))
+			log(t.output)
+			print(t.output)
+			print(t.return_status)
+			wq.submit(t)
+                errors = errors + 1
+                print("\tElapsed Time: ", current-start)
+            else:
+                if quiet:
+          		print(t.output)
+                print("Task %d of %d completed" % (completed+1,tasks))
+                completed = completed + 1
+                print("\tElapsed Time: ", current-start)
+    if errors == 0:
+        print("All tasks completed successfully!")
+    else:
+        print("%d of %d tasks completed. See outputs for errors" % (completed, tasks))
+    finish=datetime.datetime.now()    
+    print("Finished at: ",finish.strftime("%d%b %H:%M"))
+    print("Elapsed Time: ", finish-start)
+def run_monthly_averages(proj_dir):
+    i = 0
+    for month in MONTHS:
+        start_day = MONTH_DAYS[i][0] 
+        end_day   =  MONTH_DAYS[i][1]
+        command = "rmean.sh %s -D %s" % (month,proj_dir)
+        global_inputs = ""
+        insol_inputs  = ""
+        flat_inputs   = ""
+        flat_sun_avg = proj_dir+"/global/monthly/flat_total_sun_%s.tif" % month
+        total_sun_avg = proj_dir+"/global/monthly/total_sun_%s_average.tif" % month
+        hours_sun_avg = proj_dir+"/insol/monthly/hours_sun_%s_average.tif" % month
+        total_sun_med = proj_dir+"/global/monthly/total_sun_%s_median.tif" % month
+        hours_sun_med = proj_dir+"/insol/monthly/hours_sun_%s_median.tif" % month
+        total_sun_std = proj_dir+"/global/monthly/total_sun_%s_stddev.tif" % month
+        hours_sun_std = proj_dir+"/insol/monthly/hours_sun_%s_stddev.tif" % month
+        total_sun_var = proj_dir+"/global/monthly/total_sun_%s_variance.tif" % month
+        hours_sun_var = proj_dir+"/insol/monthly/hours_sun_%s_variance.tif" % month
+        for day in range(start_day,end_day+1):
+            global_inputs=global_inputs + " %s/global/daily/total_sun_day_%d.tif" % (proj_dir,day)
+            insol_inputs=insol_inputs + " %s/insol/daily/hours_sun_day_%d.tif" % (proj_dir,day)
+            flat_inputs=flat_inputs+" %s/global/daily/flat_total_sun_day_%d.tif" % (proj_dir,day)
+        command = command + global_inputs + " " + insol_inputs + " "  + flat_inputs
+        print(command)
+        process=Popen(command,shell=True)
+        stdout,stderr=process.communicate()
+        i = i+1
+def run_eemt(wq,proj_dir,syear,eyear,dem):
+    for year in range(syear,eyear+1):
+        for month in MONTHS:
+            eemt_topo = proj_dir+"/eemt/EEMT_Topo_%s_%d.tif" % (month,year)
+            eemt_trad = proj_dir+"/eemt/EEMT_Trad_%s_%d.tif" % (month,year)
+            total_sun = proj_dir+"/global/monthly/total_sun_%s_average.tif" % month
+            hours_sun = proj_dir+"/insol/monthly/hours_sun_%s_average.tif" % month
+            flat_sun = proj_dir+"/global/monthly/flat_total_sun_%s.tif" % month
+            slope = proj_dir+"/slope.tif"
+            aspect= proj_dir+"/aspect.tif"
+            tmin = proj_dir+"/daymet/tmin/tmin_%d_%s.tif" % (year,month)
+            tmax = proj_dir+"/daymet/tmax/tmax_%d_%s.tif" % (year,month)
+            twi = proj_dir+"/twi.tif"
+            prcp = proj_dir+"/daymet/prcp/prcp_%d_%s.tif" % (year,month)
+            vp = proj_dir+"/daymet/vp/vp_%d_%s.tif" % (year,month)
+            na_dem = proj_dir+"/na_dem.tif"
+            command = "reemt.sh" + " " + proj_dir + " " + month + " " + `year` + " " + dem + " " + na_dem + " " + tmin + " " + tmax + " " + vp + " " + " " + prcp + " " + twi + " " + total_sun + " " +     hours_sun + " " + flat_sun + " " + slope + " " + aspect
+            process=Popen(command,shell=True)
+            stdout,stderr=process.communicate()
+def load_eemt_tasks(wq,proj_dir,syear,eyear,dem):
+    tasks = 0
+    reemt = os.path.join(script_location,"reemt.sh")
+    for year in range(syear,eyear+1):
+        for month in MONTHS:
+            eemt_topo = proj_dir+"/eemt/EEMT_Topo_%s_%d.tif" % (month,year)
+            eemt_trad = proj_dir+"/eemt/EEMT_Trad_%s_%d.tif" % (month,year)
+            total_sun = proj_dir+"/global/monthly/total_sun_%s_average.tif" % month
+            hours_sun = proj_dir+"/insol/monthly/hours_sun_%s_average.tif" % month
+            flat_sun = proj_dir+"/global/monthly/flat.tif"
+            slope = proj_dir+"/slope.tif"
+            aspect= proj_dir+"/aspect.tif"
+            tmin = proj_dir+"/daymet/tmin/tmin_%d_%s.tif" % (year,month)
+            tmax = proj_dir+"/daymet/tmax/tmax_%d_%s.tif" % (year,month)
+            twi = proj_dir+"/twi.tif"
+            prcp = proj_dir+"/daymet/prcp/prcp_%d_%s.tif" % (year,month)
+            vp = proj_dir+"/daymet/vp/vp_%d_%s.tif" % (year,month)
+            na_dem = proj_dir+"na_dem.tif"
+            command = "./reemt.sh" + " " + proj_dir + " " + month + " " + `year` + " " + dem + " " + na_dem + " " + tmin + " " + tmax + " " + vp + " " + " " + prcp + " " + twi + " " + total_sun + " " + hours_sun + " " + flat_sun + " " + slope + " " + aspect
+	    command = "./reemt.sh " + proj_dir + " " + month + " " + `year` + " dem.tif na_dem.tif tmin.tif tmax.tif vp.tif prcp.tif twi.tif total_sun.tif hours_sun.tif flat_sun.tif slope.tif aspect.tif"
+            task = Task(command)
+            task.specify_input_file(reemt,"reemt.sh", WORK_QUEUE_INPUT, cache=True)
+            task.specify_input_file(dem,"dem.tif" ,WORK_QUEUE_INPUT,cache=True)
+            task.specify_input_file(total_sun,"total_sun.tif",WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(hours_sun,"hours_sun.tif",WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(flat_sun,"flat_sun.tif",WORK_QUEUE_INPUT,cache=True)
+            task.specify_input_file(slope,"slope.tif",WORK_QUEUE_INPUT,cache=True)
+            task.specify_input_file(aspect,"aspect.tif",WORK_QUEUE_INPUT,cache=True)
+            task.specify_input_file(tmin,"tmin.tif",WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(tmax,"tmax.tif",WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(twi,"twi.tif",WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(prcp,"prcp.tif",WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(vp,"vp.tif",WORK_QUEUE_INPUT,cache=False)
+            task.specify_input_file(na_dem,"na_dem.tif",WORK_QUEUE_INPUT,cache=True)
+
+            task.specify_output_file(eemt_topo, eemt_topo, cache=False)
+            task.specify_output_file(eemt_trad, eemt_trad, cache=False)
+            print(command)
+            wq.submit(task)
+            tasks=tasks+1
+    return wq,tasks
+def create_project_directories(proj_dir):
+    if not os.path.exists(os.path.join(proj_dir,"global")):
+        os.makedirs(os.path.join(proj_dir,"global","daily"))
+        os.makedirs(os.path.join(proj_dir,"global","monthly"))
+    if not os.path.exists(os.path.join(proj_dir,"insol")):
+        os.makedirs(os.path.join(proj_dir,"insol","daily"))
+        os.makedirs(os.path.join(proj_dir,"insol","monthly"))
+    if not os.path.exists(os.path.join(proj_dir,"eemt")):
+        os.makedirs(os.path.join(proj_dir,"eemt"))
+        #os.makedirs(os.path.join(proj_dir,"eemt/summary"))
+        #for month in MONTHS:
+            #os.makedirs(os.path.join(proj_dir,"eemt/summary",month))
+        #os.makedirs(os.path.join(proj_dir,"eemt/yearly"))
+        #for year in range(1980,2014):
+            #os.makedirs(os.path.join(proj_dir,"eemt/yearly/%d" % year))
+            #for month in MONTHS:
+                #os.makedirs(os.path.join(proj_dir,"eemt/yearly/%d" % year, month))
+    if not os.path.exists(os.path.join(proj_dir,"daymet")):
+        os.makedirs(os.path.join(proj_dir,"daymet"))
+        os.makedirs(os.path.join(proj_dir,"daymet/tmin"))
+        os.makedirs(os.path.join(proj_dir,"daymet/tmax"))
+        os.makedirs(os.path.join(proj_dir,"daymet/swe"))
+        os.makedirs(os.path.join(proj_dir,"daymet/prcp"))
+        os.makedirs(os.path.join(proj_dir,"daymet/vp"))
+        os.makedirs(os.path.join(proj_dir,"daymet/dayl"))
+        os.makedirs(os.path.join(proj_dir,"daymet/srad"))
+        os.makedirs(os.path.join(proj_dir,"daymet/twi"))
+def createTWI(warped_tif,proj_dir):
+    warped_dem = os.path.join(warped_tif.getName()+".tif")
+    dem_grid = os.path.join(warped_dem[:-4])
+    slope_grid = os.path.join(proj_dir,"slope_grid")
+    aspect_grid = os.path.join(proj_dir,"aspect_grid")
+    catchment_grid = os.path.join(proj_dir,"catchment_grid")
+    twi_grid = os.path.join(proj_dir,"twi_grid")
+    print(dem_grid)
+##--Import DEM
+    import_dem="saga_cmd io_gdal 0 -FILES " + warped_dem + " -GRIDS " + dem_grid
+    print(import_dem)
+    process=Popen(import_dem,shell=True)
+    process.communicate()
+
+##--Run Slope, Aspect, Curvature
+    sac="saga_cmd ta_morphometry 0 -ELEVATION " + dem_grid+".sgrd -SLOPE " +slope_grid + " -ASPECT " + aspect_grid
+    print(sac)
+    process=Popen(sac,shell=True)
+    process.communicate()
+
+##--Run Catchment Area
+    catcha = "saga_cmd ta_hydrology 1 -ELEVATION " + dem_grid + ".sgrd -CAREA " + catchment_grid
+    print(catcha)
+    process=Popen(catcha,shell=True)
+    process.communicate()
+##--Run Topographical Wetness Index
+    twi="saga_cmd ta_hydrology 20 -SLOPE " + slope_grid + ".sgrd -AREA " + catchment_grid + ".sgrd -TWI " + twi_grid
+    print(twi)
+    process=Popen(twi,shell=True)
+    process.communicate()
+##--Export Files as GeoTiffs
+    export_slope = "saga_cmd io_gdal 2 -GRIDS " + slope_grid + ".sgrd -FILE " + os.path.join(proj_dir,"slope.tif")
+    export_aspect = "saga_cmd io_gdal 2 -GRIDS " + aspect_grid + ".sgrd -FILE " + os.path.join(proj_dir,"aspect.tif")
+    export_catchment = "saga_cmd io_gdal 2 -GRIDS " + catchment_grid + ".sgrd -FILE " + os.path.join(proj_dir,"catchment.tif")
+    export_twi = "saga_cmd io_gdal 2 -GRIDS " + twi_grid + ".sgrd -FILE " + os.path.join(proj_dir,"twi.tif")
+
+    process=Popen(export_slope,shell=True)
+    process.communicate()
+    process=Popen(export_aspect,shell=True)
+    process.communicate()
+    process=Popen(export_catchment,shell=True)
+    process.communicate()
+    process=Popen(export_twi,shell=True)
+    process.communicate()
+##--Remove unneeded SAGA files
+    remove_files = "rm " + os.path.join(proj_dir,"*.mgrd") + " " + os.path.join(proj_dir,"*.prj") + " " + os.path.join(proj_dir,"*.sdat") + " " + os.path.join(proj_dir,"*.sgrd")
+    process = Popen(remove_files,shell=True)
+    process.communicate()
+def main():
+##--Argument Parser
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--start-year', '-s', type=int, dest="start")
+    parser.add_argument('--end-year', '-e', type=int, dest="end")
+    parser.add_argument('--name','-n',dest="name")
+    parser.add_argument('-O',dest="output")
+    parser.add_argument('-v',dest="verbose")
+    parser.add_argument('args',nargs=1)
+    args=parser.parse_args()
+
+    dem = args.args[0]
+    start_year= args.start
+    end_year  = args.end
+    name      = args.name
+    proj_dir  = args.output
+    verbose   = args.verbose
+    port      = 9125 
+
+##--Argument Validation
+##--If start=null, start at beginning of time
+    if not start_year:
+        start_year = 1980
+##--If end=null, finish at end of time
+    if not end_year:
+        end_year = datetime.date.today().year - 2
+##--End must be > Start
+    if end_year < start_year:
+        error("End year must occur after start year!")
+##--Default WQ name
+    if not name:
+        name=getpass.getuser() + "_EEMT"
+##--Verify DEM Exists
+    if not os.path.isfile(dem):
+        error("DEM not found!")
+##--Input DEM Must be *.tif
+    if dem[-4:] != ".tif":
+        error("DEM must be a .tif file.")
+##--If output null, output to current directory
+    if not proj_dir:
+        proj_dir="./"+"eemt_"+dem[:-4]
+	if end_year-start_year == 0:
+	    proj_dir = proj_dir+"_"+`start_year`
+	else:
+	    proj_dir = proj_dir+"_"+`start_year`+"_"+`end_year`
+    if verbose:
+        quiet=False
+    start=datetime.datetime.now()
+    print("Started at: ",start.strftime("%d%b %H:%M"))
+
+##--Creete project directory structure
+    create_project_directories(proj_dir)
+##--Create Workqueue
+    try:
+        wq = WorkQueue(port)
+        wq.specify_name(name)
+        cctools_debug_flags_set("all")
+        cctools_debug_config_file("wq.debug")
+        print("Workqueue started with name " + name + " on port 9123")
+    except:
+        error("WorkQueue could not be instantiated")
+
+######--EEMT--#####
+##--Warp DEM
+    test=tiffparser.TiffParser()
+    test.loadTiff(dem)
+    test.read_meta(dem)
+    test_coords = test.getProjCoords()
+    warped_path = test.convert_opentopo(proj_dir,dem)
+    warped_tif = tiffparser.TiffParser()
+    warped_tif.loadTiff(warped_path)
+    warped_coords = warped_tif.getProjCoords()
+    lrx = float(warped_coords[0][0].split(',')[0])
+    lry = float(warped_coords[0][0].split(',')[1])
+    ulx = float(warped_coords[0][1].split(',')[0])
+    uly = float(warped_coords[0][1].split(',')[1])
+
+##--Start IRODS
+    command=['iinit']
+    process=Popen(command,stderr=PIPE,shell=True)
+    stdout,stderr=process.communicate()
+    if stderr != '':
+        print("There was an error starting iCommands. Please review the error messages then try again\n\n\n")
+        print(stderr)
+        sys.exit(1)
+##--Get DAYMET Data for given years
+    print("Downloading national DAYMET data")
+    command = "iget /iplant/home/tyson_swetnam/DAYMET/NA_DEM/na_dem.tif " + proj_dir + "/na_dem.tif"
+    command = ['iget','/iplant/home/tyson_swetnam/DAYMET/NA_DEM/na_dem.tif',proj_dir+'/na_dem.tif']
+    process=Popen(command,shell=False)
+    stdout,stderr=process.communicate()
+    for year in range(start_year,end_year+1):
+        for param in PARAMS:
+            for month in MONTHS:
+                command = ['iget']
+                filepath=os.path.join(IPLANT_ROOT,param+"_allyrs",param+"_"+str(year)+"_"+month+".tif")
+                daymet_output=os.path.join(proj_dir,"daymet",param)
+                command.append(filepath)
+                command.append(daymet_output)
+                print("Downloading " + param + " for " + month+str(year))
+                process=Popen(command,shell=False)
+                stdout,stderr=process.communicate()
+    print("All national DAYMET data downloaded")
+    print("Partitioning national data to local region")
+    for param in PARAMS:
+        file_dir = os.path.join(proj_dir,"daymet",param)
+        file_list = os.listdir(file_dir)
+        for filename in file_list:
+            inputfile =os.path.join(file_dir,filename)
+            outputfile=os.path.join(file_dir,filename[:-4]+"_local.tif")
+            command = "gdal_translate -projwin " + str(ulx)+" "+str(uly)+" "+str(lrx)+" "+str(lry)+ " -of GTiff "+inputfile+" " +outputfile 
+            process=Popen(command,shell=True)
+            stdout,stderr=process.communicate()
+            command = "rm " + inputfile
+    createTWI(warped_tif,proj_dir)
+
+##--Load RSun Tasks
+    wq,tasks_sun = rsun.load_tasks(wq,proj_dir,range(1,366),warped_tif.getName()+".tif")
+    print("Workqueue started with name " + name + " on port 9123")
+    run_workqueue(wq,tasks_sun,proj_dir)
+    dir_name=proj_dir+"/global/daily"
+    num_files = len([f for f in os.listdir(dir_name) if os.path.isfile(f)])
+    print(num_files)
+    #if(num_files < 730):
+    #	print("An error has occurred creating the Solar Insolation Models. Please Try again")
+    #	exit(1)
+##--Load RSeries Tasks
+    run_monthly_averages(proj_dir)
+    run_eemt(wq,proj_dir,start_year,end_year,warped_tif.getName()+".tif")
+
+if __name__ == '__main__':
+    main()

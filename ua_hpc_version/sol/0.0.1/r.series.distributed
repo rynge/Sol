@@ -1,0 +1,271 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+
+"""
+r.series.distributed:  This program was written by N R Callahan in Spring 2015. 
+See manual pages for details.
+(C) 2014 Copywrite N R Callahan, University of Arizona, Tucson, Arizona
+email: nicholas.r.callahan@gmail.com
+"""
+
+"""
+INSERT LICENSE HERE
+"""
+
+
+
+#Globals
+MONTHS=["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"]
+MONTH_DAYS=[[1,31],[32,59],[60,90],[91,120],[121,150],[152,181],[182,212],[213,243],[244,273],[274,304],[305,334],[335,365]]
+
+
+
+#Default printing functions
+def error(*objs):
+    print("ERROR: ", *objs, file=sys.stderr)
+    exit(1)
+def warning(*objs):
+    print("WARNING: ", *objs, file=sys.stderr)
+
+#Imports
+import argparse
+import sys, os
+import imp
+from random import randint
+
+#We need work_queue to be installed, but want to die gracefully
+try:
+    imp.find_module('work_queue')
+    found = True
+except ImportError:
+    error("Could not find work_queue.\n\tAdd work_queue module location to PYTHONPATH")
+    exit(1)
+if found:
+    from work_queue import *
+
+#Get install location
+script_location=os.path.abspath(os.path.dirname(sys.argv[0]))
+
+def load_file_tasks(wq,files):
+    tasks = 0
+    rmean = os.path.join(script_location,"rmean.sh")
+    proj_dir = "./files_%s" % files[0][:-4]
+    print(proj_dir)
+    exit(1)
+    command ="./rmean.sh FILE -D %s" % proj_dir
+
+def load_monthly_tasks(wq,proj_dir):
+    tasks = 0 
+    rmean = os.path.join(script_location,"rmean.sh")
+    i = 0
+##--There will be one task per month
+    for month in MONTHS:
+        start_day = MONTH_DAYS[i][0]
+        end_day   = MONTH_DAYS[i][1]
+        command = "./rmean.sh %s -D %s" % (month,proj_dir)
+        global_inputs = ""
+        insol_inputs = ""
+	flat_inputs = ""
+	flat_sun_avg = proj_dir+"/global/monthly/flat_total_sun_%s.tif" % month
+        total_sun_avg = proj_dir+"/global/monthly/total_sun_%s_average.tif" % month
+    	hours_sun_avg = proj_dir+"/insol/monthly/hours_sun_%s_average.tif" % month
+        total_sun_med = proj_dir+"/global/monthly/total_sun_%s_median.tif" % month
+    	hours_sun_med = proj_dir+"/insol/monthly/hours_sun_%s_median.tif" % month
+        total_sun_std = proj_dir+"/global/monthly/total_sun_%s_stddev.tif" % month
+    	hours_sun_std = proj_dir+"/insol/monthly/hours_sun_%s_stddev.tif" % month
+        total_sun_var = proj_dir+"/global/monthly/total_sun_%s_variance.tif" % month
+    	hours_sun_var = proj_dir+"/insol/monthly/hours_sun_%s_variance.tif" % month
+    ##--Need to create command for every day in this month
+        for day in range(start_day,end_day+1):
+            global_inputs = global_inputs + " ./global/daily/total_sun_day_%d.tif" % day
+            insol_inputs  = insol_inputs  + " ./insol/daily/hours_sun_day_%d.tif" % day
+	    flat_inputs = flat_inputs + " ./global/daily/flat_total_sun_day_%d.tif" % day
+        command = command + global_inputs + " " + insol_inputs + " " + flat_inputs
+
+    ##--Create Task
+        task = Task(command)
+    ##--Input Files
+        for day in range(start_day,end_day+1):
+            task.specify_input_file(proj_dir+"/global/daily/flat_total_sun_day_%d.tif" % day, "global/daily/flat_total_sun_day_%d.tif" % day, cache = False)
+            task.specify_input_file(proj_dir+"/global/daily/total_sun_day_%d.tif" % day, "global/daily/total_sun_day_%d.tif" % day, cache = False)
+            task.specify_input_file(proj_dir+"/insol/daily/hours_sun_day_%d.tif" % day, "insol/daily/hours_sun_day_%d.tif" % day, cache = False)
+	task.specify_input_file(rmean,"rmean.sh",cache=True)
+	task.specify_output_file(flat_sun_avg, "global/monthly/flat_total_sun_%s.tif" %month, cache = False)
+        task.specify_output_file(total_sun_avg, "global/monthly/total_sun_%s_average.tif" %month, cache = False)
+        task.specify_output_file(hours_sun_avg, "insol/monthly/hours_sun_%s_average.tif" % month, cache = False)
+        task.specify_output_file(total_sun_med, "global/monthly/total_sun_%s_median.tif" %month, cache = False)
+        task.specify_output_file(hours_sun_med, "insol/monthly/hours_sun_%s_median.tif" % month, cache = False)
+        task.specify_output_file(total_sun_std, "global/monthly/total_sun_%s_stddev.tif" %month, cache = False)
+        task.specify_output_file(hours_sun_std, "insol/monthly/hours_sun_%s_stddev.tif" % month, cache = False)
+        task.specify_output_file(total_sun_var, "global/monthly/total_sun_%s_variance.tif" %month, cache = False)
+        task.specify_output_file(hours_sun_var, "insol/monthly/hours_sun_%s_variance.tif" % month, cache = False)
+    ##--Submit
+	print("FLAT INPUTS: " + flat_inputs)
+	print("FLAT AVERAGE: " + flat_sun_avg)
+	print("TOTAL SUN AVG: " + total_sun_avg)
+        wq.submit(task)
+        tasks = tasks+1
+        i = i + 1
+    return wq, tasks
+def load_annual_tasks(wq,proj_dir):
+    tasks = 0
+    rmean="rmean.sh"
+    global_inputs = ""
+    insol_inputs  = ""
+    command="./rmean.sh annual -D %s" % proj_dir
+    total_sun_avg = proj_dir+"/global/annual/total_sun_annual_average.tif" 
+    hours_sun_avg = proj_dir+"/insol/annual/hours_sun_annual_average.tif" 
+    total_sun_med = proj_dir+"/global/annual/total_sun_annual_median.tif" 
+    hours_sun_med = proj_dir+"/insol/annual/hours_sun_annual_median.tif" 
+    total_sun_std = proj_dir+"/global/annual/total_sun_annual_stddev.tif" 
+    hours_sun_std = proj_dir+"/insol/annual/hours_sun_annual_stddev.tif" 
+    total_sun_var = proj_dir+"/global/annual/total_sun_annual_variance.tif" 
+    hours_sun_var = proj_dir+"/insol/annual/hours_sun_annual_variance.tif" 
+##--Need to create command for every day in the year
+    for day in range(1,366):
+        global_inputs = global_inputs + " ./global/daily/total_sun_day_%d.tif" % day
+        insol_inputs  = insol_inputs  + " ./insol/daily/hours_sun_day_%d.tif" % day
+    command = command + global_inputs + " " + insol_inputs
+
+##Create Task
+    task = Task(command)
+##--Input Files
+    for day in range(1, 366):
+        task.specify_input_file(proj_dir+"/global/daily/total_sun_day_%d.tif" % day, "global/daily/total_sun_day_%d.tif" % day, cache = False)
+        task.specify_input_file(proj_dir+"/insol/daily/hours_sun_day_%d.tif" % day, "insol/daily/hours_sun_day_%d.tif" % day, cache = False)
+    task.specify_input_file(rmean,"rmean.sh",cache=True)
+    task.specify_output_file(total_sun_avg, "global/monthly/total_sun_annual_average.tif", cache = False)
+    task.specify_output_file(hours_sun_avg, "insol/monthly/hours_sun_annual_average.tif", cache = False)
+    task.specify_output_file(total_sun_med, "global/monthly/total_sun_annual_median.tif", cache = False)
+    task.specify_output_file(hours_sun_med, "insol/monthly/hours_sun_annual_median.tif", cache = False)
+    task.specify_output_file(total_sun_std, "global/monthly/total_sun_annual_stddev.tif", cache = False)
+    task.specify_output_file(hours_sun_std, "insol/monthly/hours_sun_annual_stddev.tif", cache = False)
+    task.specify_output_file(total_sun_var, "global/monthly/total_sun_annual_variance.tif", cache = False)
+    task.specify_output_file(hours_sun_var, "insol/monthly/hours_sun_annual_variance.tif", cache = False)
+    wq.submit(task)
+    tasks = tasks + 1
+    return wq,tasks
+def main():
+##--Set up Arguments
+##--Run options
+##----Linked from r.sun.dist
+##----Given directory to operate on
+##----Given a list of files
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-n','--name',dest='name',help="Workqueue project name")
+
+    subparsers = parser.add_subparsers()
+    
+    parser_cont = subparsers.add_parser('continue',help='continue from r.sun.dist run')
+    parser_cont.add_argument('-f','--frequency',dest="freq")
+    parser_cont.add_argument('DEM',nargs=1)
+    parser_cont.add_argument('dir',type=str, help='Working Directory of Project')
+    parser_cont.set_defaults(sub='continue')
+
+    parser_dir = subparsers.add_parser('directory', help='Calculate satistics on tifs in a directory')
+    parser_dir.add_argument('dir',type=str, help='Directory to be calculated on')
+    parser_dir.set_defaults(sub='directory')
+
+    parser_file = subparsers.add_parser('file',help='Calculated statistics on listed tifs')
+    parser_file.add_argument('files',nargs='*',help='List of file')
+    parser_file.set_defaults(sub='file')
+
+    args = parser.parse_args()
+##--Get arguments from argparser (for readability)
+    port = 9101
+    name = "r.series.dis-t"  #args.name#
+    sub = args.sub
+    if sub == 'continue':
+        freq=args.freq
+        dem = args.DEM[0]
+        projDir = args.dir
+    elif sub == 'directory':
+        projDir = args.dir
+    elif sub == 'file':
+        files = args.files
+    else:
+        error("Improper subcommand")
+
+##--Workqueue
+    try:
+        workqueue = WorkQueue(port)
+        workqueue.specify_name(name)
+        cctools_debug_flags_set("all")
+        cctools_debug_config_file("wq.debug")
+    except:
+        error("WorkQueue not created")
+
+##--Argument Validation
+##--Continue
+    if sub == 'continue':
+        if freq != "MONTHLY" and freq != "ANNUAL":
+                error("Frequency must be spectified as MONTHLY or ANNUAL")
+        if dem[-4:] != ".tif":
+            error("DEM must end in .tif")
+        if not os.path.isfile(dem):
+            error("Cannot find DEM")
+        if not os.path.isdir(os.path.join(projDir,os.path.basename(dem)[:-4],"global")):
+            error("Could not find global results in %s" % os.path.join(projDir,os.path.basename(dem)[:-4],"global"))
+        projDir = os.path.join(projDir,os.path.basename(dem)[:-4])
+##--Directory
+    elif sub == 'directory':
+        if not os.path.isdir(projDir):
+            error("Could not find directory %s" % projDir)
+
+##--Files
+    elif sub == 'file':
+        for file in files:
+            if not os.path.isfile(file):
+                error("Could not find file %s" % file)
+
+##--Update projDir
+##Display
+    print("\n\nRunning workqueue with the following settings:\n")
+    print("Type: " + sub.upper())
+    print("Name: " + workqueue.name) 
+    if sub == 'continue':
+        print("DEM: " + dem)
+        print("Frequency: " + freq)
+    elif sub == 'directory':
+        print("Directory: " + projDir)
+    elif sub == 'file':
+        print("Files: " + " ".join(files))
+
+##--Run Functions
+    if sub == 'continue':
+        if freq == 'ANNUAL':
+            print("run continue ANNUAL func")
+            workqueue, tasks = load_annual_tasks(workqueue,projDir)
+        elif freq == 'MONTHLY':
+            print("run continue MONTHLY func")
+            workqueue, tasks = load_monthly_tasks(workqueue,projDir)
+    elif sub == 'directory':
+        print("run directory func")
+    elif sub == 'file':
+        print("run file func")
+        workqueue, tasks = load_file_tasks(workqueue,files)
+
+##--Run Workqueue
+    errors=0
+    completed=0
+    while not workqueue.empty():
+        t = workqueue.wait(5)
+        if t:
+	    print(t.output)	  
+            if(t.return_status != 0):
+	        if(t.output != None):
+                    warning("Task %d did not return successfully!" % t.id)
+                    errors = errors + 1
+	        workqueue.submit(t)
+            else:
+                print("Task %d of %d completed" % (completed+1,tasks))
+		print(t.output)
+                completed = completed + 1
+    if errors == 0:
+        print("All tasks completed successfully!")
+    else:
+        print("%d of %d tasks completed. See outputs for errors" % (completed,tasks))
+if __name__ == '__main__':
+    main()
+
