@@ -12,6 +12,9 @@ r.eemt.distributed \- Distributed Effective Energy to Mass Transfer Model Genera
 creates EEMT models for the given DEM and date range.  It uses WorkQueue(CCTools) to distributed the create of Solar Insolation models across many nodes.
 
 .SH OPTIONS
+.B -O
+Specify the output directory
+
 .B -s, --start-year
 Specify start year for model generation (Default: 1980)
 
@@ -23,3 +26,8 @@ Specify WorkQueue project name (Default: [USER]_EEMT)
 
 .B -p
 Specify port for WorkQueue to run on (Default: 9125)
+
+.SH EXAMPLES
+.B Run Jemez_River for the year 2012, and store outputs on scratch disk  
+
+     r.eemt.distributed Jemez_River.tif -O /scratch/nrcallahan/eemt_jemez -s 2012 -e 2012
