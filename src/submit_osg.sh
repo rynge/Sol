@@ -134,7 +134,7 @@ set -e
 module load python/2.7
 module load grass
 module load cctools
-work_queue_worker -d all $PASSWORD $PROJECT -s \$PWD -t 180
+work_queue_worker -d all $PASSWORD $PROJECT -s \$PWD -t 300
 EOF
 chmod 755 wrapper.sh
 
@@ -144,7 +144,7 @@ universe = vanilla
 
 executable = wrapper.sh
 
-requirements = CVMFS_oasis_opensciencegrid_org_REVISION >= 3914 && OSGVO_OS_STRING == "RHEL 6"
+requirements = CVMFS_oasis_opensciencegrid_org_REVISION >= 3954 && OSGVO_OS_STRING == "RHEL 6"
 
 output = logs/\$(Cluster).\$(Process).out
 error = logs/\$(Cluster).\$(Process).err
