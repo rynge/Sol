@@ -1,4 +1,7 @@
 #!/bin/bash
+
+set -e
+
 #Read options
 ARGS=`getopt -o d:D: --long day:,directory: -n 'rsun.sh' -- "$@"`
 if [ $? -ne 0 ]; then
@@ -86,27 +89,44 @@ INTERVAL=1
 ###############################################################################
 #SETUP COMPLETE => START GRASS OPERATIONS
 ###############################################################################
+#module load unsupported
+#module load czo/sol/0.0.1
+if [ -e /unsupported/czo/czorc ]; then
+    source /unsupported/czo/czorc
+fi
+
 echo "Running r.sun for day $DAY"
+echo "DEM: $DEM"
 #Create new projection info
 g.proj -c georef=$DEM
 #Import Dem
 g.mremove -f "*"
+echo "Importing DEM"
 r.in.gdal input=$DEM output=dem
 #Set Region
-g.region -s rast=dem
+g.region -sa rast=dem res=10
 #Calculate Slope and Aspect
-r.slope.aspect elevation=dem slope=slope aspect=aspect
+echo "Running r.slope.aspect"
+r.slope.aspect elevation=dem slope=slope_dec aspect=aspect_dec
 #Create flat map
+echo "Creating Flat Map"
 r.mapcalc "zeros=if(dem>0,0,null())"
+echo "Running r.sun on Flat Map"
 r.sun elevin=dem aspin=zeros slopein=zeros day=$DAY step=$STEPSIZE dist=$INTERVAL glob_rad=flat_total_sun
 #Using dem and calculated slope and aspect, generate a solar insulation model
-r.sun elevin=dem aspin=aspect slopein=slope day=$DAY step=$STEPSIZE dist=$INTERVAL insol_time=hours_sun glob_rad=total_sun
+echo "Running r.sun using dem, aspect, slope"
+r.sun -s elevin=dem aspin=aspect_dec slopein=slope_dec day=$DAY step=$STEPSIZE dist=$INTERVAL insol_time=hours_sun glob_rad=total_sun
 #Output files
-r.out.gdal -c input=total_sun output=./global/daily/total_sun_day_${DAY}.tif
-r.out.gdal -c input=flat_total_sun output=./global/daily/flat_total_sun_day_${DAY}.tif
-r.out.gdal -c input=hours_sun output=./insol/daily/hours_sun_day_${DAY}.tif
-r.out.gdal -c input=slope output=./slope.tif
-r.out.gdal -c input=aspect output=./aspect.tif
+echo "Export Total Sun"
+r.out.gdal createopt="COMPRESS=LZW" -c input=total_sun output=./global/daily/total_sun_day_${DAY}.tif
+echo "Export Flat Total Sun"
+r.out.gdal createopt="COMPRESS=LZW" -c input=flat_total_sun output=./global/daily/flat_total_sun_day_${DAY}.tif
+echo "Export Hours Sun"
+r.out.gdal createopt="COMPRESS=LZW" -c input=hours_sun output=./insol/daily/hours_sun_day_${DAY}.tif
+#echo "Export Slope"
+#r.out.gdal -c createopt="BIGTIFF=IF_SAFER,COMPRESS=LZW" input=slope output=./slope.tif
+#echo "Export Aspect"
+#r.out.gdal -c createopt="BIGTIFF=IF_SAFER,COMPRESS=LZW" input=aspect output=./aspect.tif
 ###############################################################################
 #GRASS OPERATIONS COMPLETE => CLEAN UP FILES
 ###############################################################################

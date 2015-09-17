@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# This script starts up a local EEMT instance, and uses SSH to
+# submit workers on the OSG system.
+
+set -e
+
+# settings
+LOCAL_WORK_DIR=/local-scratch/rynge/Sol
+LOCAL_SOL_INSTALL=/home/rynge/git/Sol
+REMOTE_SOL_INSTALL=/home/rynge/git/Sol
+REMOTE_USER=rynge
+REMOTE_PROJECT_NAME=OSG-Staff
+export TCP_LOW_PORT=20000
+export TCP_HIGH_PORT=60000 
+
+# arguments
+DEM=$1
+DAYS=$2
+
+RUN_ID=`/bin/date +'%F_%H%M%S'`
+LOCAL_WORK_DIR=$LOCAL_WORK_DIR/$RUN_ID
+
+# do we want a unique project for each submission, or be able
+# to reuse exisiting jobs?
+WQ_PROJECT=Sol_$RUN_ID
+#WQ_PROJECT=Sol_Opal
+
+ssh $REMOTE_USER@xd-login.opensciencegrid.org "cd $REMOTE_SOL_INSTALL/src && ./submit_osg.sh $REMOTE_PROJECT_NAME $WQ_PROJECT"
+
+# start the master
+mkdir -p $LOCAL_WORK_DIR
+./r.sun.distributed \
+    --name $WQ_PROJECT \
+    --days $DAYS \
+    --directory $LOCAL_WORK_DIR \
+    $DEM
+
+echo
+echo "Output files in $LOCAL_WORK_DIR"
+find $LOCAL_WORK_DIR -type f
+
+

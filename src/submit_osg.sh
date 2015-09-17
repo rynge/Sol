@@ -7,12 +7,11 @@ set -e
 # Define default values for variables
 
 ### Change to your OSG project name to automatically charge the appopriate project
-ACCTPROJECT="OSG-Staff"
+ACCTPROJECT="$1"
 
 # These variables are modified by passed arguments
-JOBCOUNT=1
-PROJECT="-M trad_eemt_osgtest"
-PASSWORD=""
+JOBCOUNT=100
+PROJECT="-M $2"
 
 # Read and process the arguments
 while getopts ":n:p:a:P:" o ; do
@@ -116,10 +115,6 @@ else
 	echo "Connecting to Master : ${PROJECT}"
 fi 
 echo
-read -p "Hit [Ctrl]-[C] to abort, or any key to start processing...."
-echo
-
-wait
 
 # keep logs on the scratch filesystem
 WORK_DIR=/local-scratch/$USER/workqueue-workers/`/bin/date +'%F_%H%M%S'`
@@ -127,24 +122,24 @@ mkdir -p $WORK_DIR/logs
 cd $WORK_DIR
 
 # we need a wrapper to load modules
-cat >wrapper.sh <<EOF
+cat >sol-worker.sh <<EOF
 #!/bin/bash
 set -x
 set -e
 module load python/2.7
 module load grass
 module load cctools
-work_queue_worker -d all $PASSWORD $PROJECT -s \$PWD -t 300
+work_queue_worker -d all $PASSWORD $PROJECT -s \$PWD -t 180
 EOF
-chmod 755 wrapper.sh
+chmod 755 sol-worker.sh
 
 # htcondor_submit file
 cat >htcondor.sub <<EOF
 universe = vanilla
 
-executable = wrapper.sh
+executable = sol-worker.sh
 
-requirements = CVMFS_oasis_opensciencegrid_org_REVISION >= 3954 && OSGVO_OS_STRING == "RHEL 6"
+requirements = CVMFS_oasis_opensciencegrid_org_REVISION >= 3954 && HAS_MODULES == True && OSGVO_OS_STRING == "RHEL 6"
 
 output = logs/\$(Cluster).\$(Process).out
 error = logs/\$(Cluster).\$(Process).err
